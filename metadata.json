@@ -1,0 +1,6 @@
+{
+  "name": "ResolveAI",
+  "description": "AI Feedback & Issue Intelligence Platform that reads, aggregates, and prioritizes customer signals automatically.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

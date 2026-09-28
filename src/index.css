@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-brand-bg: #FFFFFF;
+  --color-brand-navbar: #F8FAFC;
+  --color-brand-card: #FFFFFF;
+  --color-brand-primary: #4F46E5;
+  --color-brand-primary-soft: rgba(79, 70, 229, 0.08);
+  --color-brand-secondary: #0F172A;
+  --color-brand-text: #334155;
+  --color-brand-success: #10B981;
+  --color-brand-warning: #0EA5E9;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-brand-bg);
+  color: var(--color-brand-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Global Light Theme Overrides for fully-integrated design matching requested white background */
+.bg-white, .bg-brand-card {
+  background-color: var(--color-brand-card) !important;
+  color: var(--color-brand-text);
+  border-color: rgba(79, 70, 229, 0.1) !important;
+}
+
+.bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-slate-50\/50, .bg-slate-100\/50 {
+  background-color: #F8FAFC !important;
+}
+
+.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover {
+  background-color: rgba(71, 85, 105, 0.05) !important;
+}
+
+.hover\:bg-slate-50\/50:hover, .hover\:bg-slate-100\/50:hover {
+  background-color: rgba(71, 85, 105, 0.03) !important;
+}
+
+.text-brand-secondary, .text-slate-900, .text-slate-800 {
+  color: #0F172A !important;
+}
+
+.text-slate-700, .text-slate-600 {
+  color: #334155 !important;
+}
+
+.text-slate-500, .text-slate-400 {
+  color: #64748B !important;
+}
+
+.border-slate-100, .border-slate-150, .border-slate-200, .border-slate-300 {
+  border-color: rgba(79, 70, 229, 0.1) !important;
+}
+
+/* Override teal utility colors used across components to match the theme */
+.bg-teal-50, .bg-teal-50\/40, .bg-teal-50\/50 {
+  background-color: var(--color-brand-primary-soft) !important;
+  color: var(--color-brand-primary) !important;
+}
+
+.border-teal-100, .border-teal-100\/50, .border-teal-300\/40 {
+  border-color: rgba(79, 70, 229, 0.2) !important;
+}
+
+.bg-teal-950\/70 {
+  background-color: rgba(79, 70, 229, 0.08) !important;
+  color: var(--color-brand-primary) !important;
+}
+
+.border-teal-800 {
+  border-color: rgba(79, 70, 229, 0.25) !important;
+}
+
+.hover\:bg-teal-50\/50:hover {
+  background-color: rgba(79, 70, 229, 0.12) !important;
+}
+
+.hover\:border-teal-100:hover {
+  border-color: var(--color-brand-primary) !important;
+}
+
+.shadow-teal-50, .shadow-teal-100, .shadow-teal-500\/20 {
+  --tw-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.08) !important;
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow) !important;
+}
+
+/* Override emerald utility colors for unified light-success indicators */
+.bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.06) !important;
+  color: var(--color-brand-success) !important;
+}
+
+.border-emerald-100 {
+  border-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Override amber/yellow utilities to beautiful warn/info colors */
+.bg-amber-50 {
+  background-color: rgba(14, 165, 233, 0.06) !important;
+  color: var(--color-brand-warning) !important;
+}
+
+.border-amber-100 {
+  border-color: rgba(14, 165, 233, 0.15) !important;
+}
+
+/* Gradient conversion from brand-primary to warning red */
+.from-brand-primary.to-emerald-400 {
+  --tw-gradient-to: var(--color-brand-warning) !important;
+}
+
+/* Override Inputs, Selects, and Textareas */
+input, textarea, select {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-color: rgba(79, 70, 229, 0.2) !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  background-color: #FFFFFF !important;
+  border-color: var(--color-brand-primary) !important;
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-brand-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.1);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-primary);
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}
+
+.pulse-dot {
+  position: relative;
+}
+.pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  background-color: currentColor;
+  opacity: 0.4;
+  animation: pulse-ring 2s infinite ease-in-out;
+}
+
