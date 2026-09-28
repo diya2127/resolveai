@@ -1,0 +1,57 @@
+[
+  {
+    "id": "AMZ-REV-89101",
+    "product": "EchoSound Pro Wireless Headphones",
+    "rating": 1,
+    "reviewer": "Aarav Sharma",
+    "reviewer_email": "aarav.sharma@example.com",
+    "date": "2026-09-27T10:14:00Z",
+    "title": "Left earbud stopped charging after 3 days",
+    "content": "Terrible build quality. The left earbud stopped charging completely after 3 days of use. Case LED flashes red. Replacement request was ignored by seller.",
+    "verified_purchase": true
+  },
+  {
+    "id": "AMZ-REV-89102",
+    "product": "UltraGlow Ergonomic Office Desk",
+    "rating": 2,
+    "reviewer": "Pooja Mehta",
+    "reviewer_email": "pooja.mehta@example.com",
+    "date": "2026-09-26T16:45:00Z",
+    "title": "Missing tabletop screws and cracked corner",
+    "content": "Package arrived badly battered. Two main frame bolts are missing and the front edge of the wood tabletop is visibly cracked. Cannot assemble without hardware.",
+    "verified_purchase": true
+  },
+  {
+    "id": "SHP-REV-44019",
+    "product": "HydraFlow Stainless Steel Flask 1L",
+    "rating": 1,
+    "reviewer": "Karan Singhania",
+    "reviewer_email": "karan.s@example.com",
+    "date": "2026-09-25T11:20:00Z",
+    "title": "Lid seal leaks hot water",
+    "content": "Extremely unsafe. The silicone lid ring doesn't seal properly and boiling tea leaked all over my car upholstery. Need an immediate replacement or full refund.",
+    "verified_purchase": true
+  },
+  {
+    "id": "FLK-REV-10294",
+    "product": "ApexSpeed Mechanical Keyboard RGB",
+    "rating": 2,
+    "reviewer": "Sneha Roy",
+    "reviewer_email": "sneha.roy@example.com",
+    "date": "2026-09-24T09:05:00Z",
+    "title": "Spacebar repeats intermittently",
+    "content": "Typing emails is a nightmare because the spacebar registers duplicate presses constantly. Tried re-seating the switch but defective PCB.",
+    "verified_purchase": true
+  },
+  {
+    "id": "AMZ-REV-90112",
+    "product": "NovaCharge 65W GaN Travel Charger",
+    "rating": 1,
+    "reviewer": "Vikram Desai",
+    "reviewer_email": "vikram.desai@example.com",
+    "date": "2026-09-23T14:30:00Z",
+    "title": "Overheating and shutting down",
+    "content": "The adapter gets alarmingly hot within 10 minutes of plugging in my laptop and cuts power. This feels like a fire hazard. Requesting immediate return label.",
+    "verified_purchase": true
+  }
+]
