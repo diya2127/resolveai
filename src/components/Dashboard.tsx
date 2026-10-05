@@ -1,4 +1,4 @@
-import { useState, Dispatch, SetStateAction } from "react";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
 import { motion } from "motion/react";
 import { CheckCircle, AlertOctagon, User, Clock, ChevronDown, Check, Save, Sparkles, TrendingDown, Activity, BarChart3, Award, TrendingUp, Inbox } from "lucide-react";
 import { User as UserType, Task, DepartmentPerformance, TaskPriority, TaskStatus } from "../types";
@@ -23,20 +23,113 @@ export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
   // State to manage task note updates
   const [activeNotes, setActiveNotes] = useState<{ [key: string]: string }>({});
 
-  const handleAcceptTask = (id: string) => {
+  // Authority Live Data State
+  const [kpiStats, setKpiStats] = useState({
+    totalComplaints: "50,000",
+    resolvedComplaints: "42,000",
+    pendingEscalations: "8,000",
+    csatRating: "89%",
+  });
+  const [departments, setDepartments] = useState<DepartmentPerformance[]>(deptsData);
+  const [severityDistribution, setSeverityDistribution] = useState([
+    { level: "Critical Priority", pct: 15, color: "from-[#38BDF8] to-brand-warning" },
+    { level: "High Priority", pct: 35, color: "from-[#6366F1] to-[#38BDF8]" },
+    { level: "Medium Priority", pct: 38, color: "from-[#312E81] to-[#6366F1]" },
+    { level: "Low Routine Priority", pct: 12, color: "from-[#1E1B4B] via-[#312E81] to-[#6366F1]" },
+  ]);
+  const [incidents, setIncidents] = useState([
+    { issue: "Payment gateway failure logs", cat: "Payment", reports: 340, sev: "Critical", status: "Pending" },
+    { issue: "Metro hub distribution bottlenecks", cat: "Delivery", reports: 9000, sev: "High", status: "In Progress" },
+    { issue: "Legacy authentication reset failure", cat: "Account", reports: 800, sev: "High", status: "In Progress" },
+    { issue: "Package structural damage logs", cat: "Product", reports: 412, sev: "Medium", status: "Pending" },
+    { issue: "Escalated SLA refund delays > 15d", cat: "Refund", reports: 265, sev: "Medium", status: "Resolved" }
+  ]);
+
+  useEffect(() => {
+    if (!isAuthority) return;
+
+    const fetchAuthorityData = async () => {
+      try {
+        const [statsRes, deptRes, sevRes, incRes] = await Promise.all([
+          fetch("/api/dashboard/stats"),
+          fetch("/api/dashboard/departments"),
+          fetch("/api/dashboard/severity-distribution"),
+          fetch("/api/dashboard/incidents"),
+        ]);
+
+        if (statsRes.ok) {
+          const s = await statsRes.json();
+          setKpiStats({
+            totalComplaints: s.totalComplaints > 0 ? s.totalComplaints.toLocaleString() : "50,000",
+            resolvedComplaints: s.resolvedComplaints > 0 ? s.resolvedComplaints.toLocaleString() : "42,000",
+            pendingEscalations: s.pendingEscalations > 0 ? s.pendingEscalations.toLocaleString() : "8,000",
+            csatRating: s.csatRating || "89%",
+          });
+        }
+
+        if (deptRes.ok) {
+          const d = await deptRes.json();
+          if (Array.isArray(d) && d.length > 0) setDepartments(d);
+        }
+
+        if (sevRes.ok) {
+          const sv = await sevRes.json();
+          if (Array.isArray(sv) && sv.length > 0) setSeverityDistribution(sv);
+        }
+
+        if (incRes.ok) {
+          const inc = await incRes.json();
+          if (Array.isArray(inc) && inc.length > 0) setIncidents(inc);
+        }
+      } catch (err) {
+        console.warn("Could not load authority metrics from backend, using baseline:", err);
+      }
+    };
+
+    fetchAuthorityData();
+  }, [isAuthority]);
+
+  const handleAcceptTask = async (id: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: "In Progress" } : t));
+    try {
+      await fetch(`/api/tasks/${encodeURIComponent(id)}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "In Progress" }),
+      });
+    } catch (err) {
+      console.warn("Could not synchronize task status with backend:", err);
+    }
   };
 
-  const handleResolveTask = (id: string) => {
+  const handleResolveTask = async (id: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: "Resolved" } : t));
+    try {
+      await fetch(`/api/tasks/${encodeURIComponent(id)}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Resolved" }),
+      });
+    } catch (err) {
+      console.warn("Could not synchronize task resolution with backend:", err);
+    }
   };
 
   const handleToggleNotes = (id: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, notesOpen: !t.notesOpen } : t));
   };
 
-  const handleSaveNotes = (id: string, text: string) => {
+  const handleSaveNotes = async (id: string, text: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, notes: text, notesOpen: false } : t));
+    try {
+      await fetch(`/api/tasks/${encodeURIComponent(id)}/notes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: text }),
+      });
+    } catch (err) {
+      console.warn("Could not save task notes to backend:", err);
+    }
   };
 
   // Helper colors
@@ -300,10 +393,10 @@ export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
       {/* KPI Stats Authority */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Active Feedback", value: "50,000", delta: "Cumulative this year", icon: TrendingDown, iconColor: "text-slate-600 bg-slate-100" },
-          { label: "Resolved Tickets", value: "42,000", delta: "84% standard rate", icon: CheckCircle, iconColor: "text-brand-success bg-emerald-50" },
-          { label: "Pending Escalations", value: "8,000", delta: "Assigned & under review", icon: AlertOctagon, iconColor: "text-red-500 bg-red-50" },
-          { label: "Customer Loyalty Index", value: "89%", delta: "Consistent month-over-month", icon: User, iconColor: "text-brand-primary bg-brand-primary-soft" }
+          { label: "Active Feedback", value: kpiStats.totalComplaints, delta: "Cumulative this year", icon: TrendingDown, iconColor: "text-slate-600 bg-slate-100" },
+          { label: "Resolved Tickets", value: kpiStats.resolvedComplaints, delta: "84% standard rate", icon: CheckCircle, iconColor: "text-brand-success bg-emerald-50" },
+          { label: "Pending Escalations", value: kpiStats.pendingEscalations, delta: "Assigned & under review", icon: AlertOctagon, iconColor: "text-red-500 bg-red-50" },
+          { label: "Customer Loyalty Index", value: kpiStats.csatRating, delta: "Consistent month-over-month", icon: User, iconColor: "text-brand-primary bg-brand-primary-soft" }
         ].map((stat, i) => (
           <div key={i} className="bg-brand-card p-5 rounded-2xl border border-slate-100 shadow-sm flex items-start justify-between">
             <div>
@@ -421,12 +514,7 @@ export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
           </div>
 
           <div className="space-y-3.5 my-4">
-            {[
-              { level: "Critical Priority", pct: 15, color: "from-[#38BDF8] to-brand-warning" },
-              { level: "High Priority", pct: 35, color: "from-[#6366F1] to-[#38BDF8]" },
-              { level: "Medium Priority", pct: 38, color: "from-[#312E81] to-[#6366F1]" },
-              { level: "Low Routine Priority", pct: 12, color: "from-[#1E1B4B] via-[#312E81] to-[#6366F1]" },
-            ].map((item, idx) => (
+            {severityDistribution.map((item, idx) => (
               <div key={idx} className="space-y-1">
                 <div className="flex justify-between text-xs font-semibold text-slate-600">
                   <span>{item.level}</span>
@@ -463,7 +551,7 @@ export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {deptsData.map((d, i) => {
+                {departments.map((d, i) => {
                   const barGradients = [
                     "from-[#312E81] to-[#4F46E5]",
                     "from-[#4F46E5] to-[#06B6D4]",
@@ -532,13 +620,7 @@ export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm font-medium">
-              {[
-                { issue: "Payment gateway failure logs", cat: "Payment", reports: 340, sev: "Critical", status: "Pending" },
-                { issue: "Metro hub distribution bottlenecks", cat: "Delivery", reports: 9000, sev: "High", status: "In Progress" },
-                { issue: "Legacy authentication reset failure", cat: "Account", reports: 800, sev: "High", status: "In Progress" },
-                { issue: "Package structural damage logs", cat: "Product", reports: 412, sev: "Medium", status: "Pending" },
-                { issue: "Escalated SLA refund delays > 15d", cat: "Refund", reports: 265, sev: "Medium", status: "Resolved" }
-              ].map((row, i) => (
+              {incidents.map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/50 transition">
                   <td className="py-4 text-slate-700 font-semibold">{row.issue}</td>
                   <td className="py-4 text-slate-500 text-xs">{row.cat}</td>

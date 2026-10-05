@@ -39,7 +39,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
     }
   };
 
-  const handleLoginSubmit = (e: FormEvent) => {
+  const handleLoginSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrorText("");
 
@@ -48,29 +48,43 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
       return;
     }
 
-    // Set correct department info depending on role/prefills
-    let name = loginEmail.split("@")[0].replace(/[\._]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-    let dept = loginRole === "authority" ? "Executive Leadership Board" : "Finance Department";
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginEmail,
+          password: loginPassword,
+          role: loginRole,
+        }),
+      });
 
-    if (loginEmail === "keya@northwind.com") {
-      name = "Keya";
-      dept = "Finance Department";
-    } else if (loginEmail === "keyasuthar@northwind.com") {
-      name = "Keya Suthar";
-      dept = "Executive Operations";
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorText(data.error || "Login failed. Check your credentials.");
+        return;
+      }
+
+      if (data.token) {
+        localStorage.setItem("resolveai_token", data.token);
+      }
+      onLoginSuccess(data.user);
+    } catch (err) {
+      console.warn("Backend auth unavailable, falling back to local session:", err);
+      let name = loginEmail.split("@")[0].replace(/[\._]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      let dept = loginRole === "authority" ? "Executive Leadership Board" : "Finance Department";
+      if (loginEmail === "keya@northwind.com") {
+        name = "Keya";
+        dept = "Finance Department";
+      } else if (loginEmail === "keyasuthar@northwind.com") {
+        name = "Keya Suthar";
+        dept = "Executive Operations";
+      }
+      onLoginSuccess({ name, email: loginEmail, role: loginRole, dept });
     }
-
-    const matchedUser: User = {
-      name,
-      email: loginEmail,
-      role: loginRole,
-      dept
-    };
-
-    onLoginSuccess(matchedUser);
   };
 
-  const handleSignupSubmit = (e: FormEvent) => {
+  const handleSignupSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrorText("");
 
@@ -89,14 +103,38 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
       return;
     }
 
-    const newUser: User = {
-      name: signupName,
-      email: signupEmail,
-      role: signupRole,
-      dept: signupRole === "authority" ? "Corporate Management" : "General Support Department"
-    };
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: signupName,
+          email: signupEmail,
+          password: signupPassword,
+          role: signupRole,
+        }),
+      });
 
-    onLoginSuccess(newUser);
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorText(data.error || "Registration failed.");
+        return;
+      }
+
+      if (data.token) {
+        localStorage.setItem("resolveai_token", data.token);
+      }
+      onLoginSuccess(data.user);
+    } catch (err) {
+      console.warn("Backend registration unavailable, falling back to local session:", err);
+      const newUser: User = {
+        name: signupName,
+        email: signupEmail,
+        role: signupRole,
+        dept: signupRole === "authority" ? "Corporate Management" : "General Support Department"
+      };
+      onLoginSuccess(newUser);
+    }
   };
 
   const handleForgotSubmit = (e: FormEvent) => {

@@ -16,17 +16,37 @@ export default function AboutContact({ initialView }: ContactProps) {
   const [message, setMessage] = useState("");
   const [isSent, setIsSent] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name || !email || !message) return;
     
-    setIsSent(true);
-    setTimeout(() => {
-      setName("");
-      setEmail("");
-      setTopic("General inquiry");
-      setMessage("");
-    }, 2000);
+    setIsSubmitting(true);
+    try {
+      await fetch("/api/complaints/incoming", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "Website",
+          senderName: name,
+          senderEmail: email,
+          subject: topic,
+          message: message,
+        }),
+      });
+    } catch (err) {
+      console.warn("Could not dispatch website complaint to backend:", err);
+    } finally {
+      setIsSubmitting(false);
+      setIsSent(true);
+      setTimeout(() => {
+        setName("");
+        setEmail("");
+        setTopic("General inquiry");
+        setMessage("");
+      }, 2500);
+    }
   };
 
   return (

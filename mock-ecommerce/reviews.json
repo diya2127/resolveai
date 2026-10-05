@@ -1,57 +1,72 @@
 [
   {
-    "id": "AMZ-REV-89101",
-    "product": "EchoSound Pro Wireless Headphones",
+    "id": "ECOMM-REV-1001",
+    "customer_name": "Arjun Sharma",
+    "customer_email": "arjun.sharma@example.in",
+    "product": "Sony WH-1000XM5 Wireless Headphones",
     "rating": 1,
-    "reviewer": "Aarav Sharma",
-    "reviewer_email": "aarav.sharma@example.com",
-    "date": "2026-09-27T10:14:00Z",
-    "title": "Left earbud stopped charging after 3 days",
-    "content": "Terrible build quality. The left earbud stopped charging completely after 3 days of use. Case LED flashes red. Replacement request was ignored by seller.",
-    "verified_purchase": true
+    "review_title": "Damaged on arrival and wrong color sent!",
+    "review_text": "I ordered black headphones, but received silver ones with a cracked headband. The packaging was torn and the charging cable was missing. Completely unacceptable for a premium product.",
+    "date": "2026-03-28T10:15:00Z"
   },
   {
-    "id": "AMZ-REV-89102",
-    "product": "UltraGlow Ergonomic Office Desk",
+    "id": "ECOMM-REV-1002",
+    "customer_name": "Pooja Patel",
+    "customer_email": "pooja.patel@example.in",
+    "product": "Samsung Galaxy S24 Ultra",
+    "rating": 1,
+    "review_title": "Charged twice on UPI but order shows failed",
+    "review_text": "Money was deducted twice from my bank account via Google Pay (₹1,24,999 each time), but the website gave an error and the order was never confirmed. Customer care is not answering.",
+    "date": "2026-03-29T14:22:00Z"
+  },
+  {
+    "id": "ECOMM-REV-1003",
+    "customer_name": "Rohan Deshmukh",
+    "customer_email": "rohan.d@example.in",
+    "product": "Nike Air Zoom Pegasus 40",
     "rating": 2,
-    "reviewer": "Pooja Mehta",
-    "reviewer_email": "pooja.mehta@example.com",
-    "date": "2026-09-26T16:45:00Z",
-    "title": "Missing tabletop screws and cracked corner",
-    "content": "Package arrived badly battered. Two main frame bolts are missing and the front edge of the wood tabletop is visibly cracked. Cannot assemble without hardware.",
-    "verified_purchase": true
+    "review_title": "Courier delayed package for 8 days in hub",
+    "review_text": "The tracking status has been stuck at the Mumbai transit hub for 8 days without any movement. Promised delivery was April 1st, now it is over a week late and no one is helping.",
+    "date": "2026-03-30T09:40:00Z"
   },
   {
-    "id": "SHP-REV-44019",
-    "product": "HydraFlow Stainless Steel Flask 1L",
+    "id": "ECOMM-REV-1004",
+    "customer_name": "Meera Iyer",
+    "customer_email": "meera.iyer@example.in",
+    "product": "Dyson V12 Cordless Vacuum",
     "rating": 1,
-    "reviewer": "Karan Singhania",
-    "reviewer_email": "karan.s@example.com",
-    "date": "2026-09-25T11:20:00Z",
-    "title": "Lid seal leaks hot water",
-    "content": "Extremely unsafe. The silicone lid ring doesn't seal properly and boiling tea leaked all over my car upholstery. Need an immediate replacement or full refund.",
-    "verified_purchase": true
+    "review_title": "Returned item 18 days ago, still no refund!",
+    "review_text": "The delivery agent picked up the returned defective vacuum 18 days ago and return was approved. However, the refund of ₹45,000 has still not credited to my original payment card.",
+    "date": "2026-03-31T16:05:00Z"
   },
   {
-    "id": "FLK-REV-10294",
-    "product": "ApexSpeed Mechanical Keyboard RGB",
+    "id": "ECOMM-REV-1005",
+    "customer_name": "Vikas Verma",
+    "customer_email": "vikas.verma@example.in",
+    "product": "Apple iPad Air M2",
     "rating": 2,
-    "reviewer": "Sneha Roy",
-    "reviewer_email": "sneha.roy@example.com",
-    "date": "2026-09-24T09:05:00Z",
-    "title": "Spacebar repeats intermittently",
-    "content": "Typing emails is a nightmare because the spacebar registers duplicate presses constantly. Tried re-seating the switch but defective PCB.",
-    "verified_purchase": true
+    "review_title": "Screen flickering and overheating after iOS update",
+    "review_text": "The display started flickering intermittently after 2 days of usage. Device heats up rapidly during normal video playback. Need immediate technical assistance or replacement.",
+    "date": "2026-04-01T11:30:00Z"
   },
   {
-    "id": "AMZ-REV-90112",
-    "product": "NovaCharge 65W GaN Travel Charger",
+    "id": "ECOMM-REV-1006",
+    "customer_name": "Ananya Sen",
+    "customer_email": "ananya.sen@example.in",
+    "product": "Kindle Paperwhite 11th Gen",
+    "rating": 5,
+    "review_title": "Outstanding battery life and crisp display",
+    "review_text": "Extremely satisfied with the delivery and display clarity. Battery lasts for weeks on a single charge. Highly recommended.",
+    "date": "2026-04-02T13:45:00Z"
+  },
+  {
+    "id": "ECOMM-REV-1007",
+    "customer_name": "Siddharth Rao",
+    "customer_email": "siddharth.r@example.in",
+    "product": "Samsung Galaxy S24 Ultra",
     "rating": 1,
-    "reviewer": "Vikram Desai",
-    "reviewer_email": "vikram.desai@example.com",
-    "date": "2026-09-23T14:30:00Z",
-    "title": "Overheating and shutting down",
-    "content": "The adapter gets alarmingly hot within 10 minutes of plugging in my laptop and cuts power. This feels like a fire hazard. Requesting immediate return label.",
-    "verified_purchase": true
+    "review_title": "Duplicate transaction hold still not cleared",
+    "review_text": "Another customer affected by the payment gateway glitch. Bank says merchant must release authorization hold. Please reverse the duplicate charge immediately.",
+    "date": "2026-04-03T08:20:00Z"
   }
 ]

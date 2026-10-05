@@ -1,8 +1,9 @@
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Sparkles } from "lucide-react";
 import { Category } from "../types";
 
-const categories: Category[] = [
+const defaultCategories: Category[] = [
   { icon: "📦", name: "Product Quality Issues", total: 12400, repeated: 5100, sev: "med", ai: "Most complaints relate to items not matching listed catalog descriptions or arriving without components." },
   { icon: "🚚", name: "Logistics & Delivery", total: 15000, repeated: 9000, sev: "high", ai: "Most users complain about delayed shipping times and lack of carrier responsiveness in metro centers." },
   { icon: "💳", name: "Payment & Gateway Exceptions", total: 6200, repeated: 3400, sev: "crit", ai: "Recurring checkout transaction failures are traced to third-party secure token timeout database locks." },
@@ -13,6 +14,19 @@ const categories: Category[] = [
 ];
 
 export default function Categories() {
+  const [catList, setCatList] = useState<Category[]>(defaultCategories);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data.categories) && data.categories.length > 0) {
+          setCatList(data.categories);
+        }
+      })
+      .catch(err => console.warn("Using baseline categories:", err));
+  }, []);
+
   const getSeverityBadge = (s: Category["sev"]) => {
     switch (s) {
       case "crit":
@@ -40,13 +54,13 @@ export default function Categories() {
           <p className="text-sm text-slate-500 mt-1">Real-time grouping of natural language customer feedback into operational categories</p>
         </div>
         <div className="text-xs text-slate-400 font-medium">
-          7 active categories detected
+          {catList.length} active categories detected
         </div>
       </div>
 
       {/* Categories Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {categories.map((c, idx) => (
+        {catList.map((c, idx) => (
           <div key={idx} className="bg-brand-card p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between">

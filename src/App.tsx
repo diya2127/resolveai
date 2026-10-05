@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles, BarChart2, Folder, MessageSquare, Info, Mail, Menu, X } from "lucide-react";
 import { User, Task } from "./types";
 import Auth from "./components/Auth";
@@ -27,6 +27,24 @@ export default function App() {
   const [profileSidebarOpen, setProfileSidebarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  useEffect(() => {
+    if (!user) return;
+    const fetchTasks = async () => {
+      try {
+        const res = await fetch(`/api/tasks?email=${encodeURIComponent(user.email)}&role=${user.role}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.tasks) && data.tasks.length > 0) {
+            setTasks(data.tasks);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch tasks from backend, using fallback:", err);
+      }
+    };
+    fetchTasks();
+  }, [user]);
+
   const handleLoginSuccess = (signedInUser: User) => {
     setUser(signedInUser);
     setActiveTab("dashboard");
@@ -36,6 +54,7 @@ export default function App() {
     setUser(null);
     setProfileSidebarOpen(false);
     setMobileMenuOpen(false);
+    localStorage.removeItem("resolveai_token");
   };
 
   if (!user) {

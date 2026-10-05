@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   TrendingUp,
@@ -202,23 +202,42 @@ export default function Overview({ tasks = [] }: OverviewProps) {
     ]);
   };
 
-  // 4. Live Queue stats calculations merged with lifetime baselines
+  // 4. Live Queue stats calculations merged with database baselines
+  const [dbTotals, setDbTotals] = useState({ total: 100000, resolved: 85000, pending: 15000, csat: "92%" });
+
+  useEffect(() => {
+    fetch("/api/dashboard/stats")
+      .then(res => res.json())
+      .then(data => {
+        if (data.totalComplaints > 0) {
+          setDbTotals({
+            total: data.totalComplaints,
+            resolved: data.resolvedComplaints,
+            pending: data.pendingComplaints + data.inProgressComplaints,
+            csat: data.csatRating || "92%",
+          });
+        }
+      })
+      .catch(err => console.warn("Could not fetch dashboard stats in Overview:", err));
+  }, []);
+
   const liveTotalQueueCount = tasks.length;
   const liveResolvedCount = tasks.filter(t => t.status === "Resolved").length;
   const livePendingCount = tasks.filter(t => t.status === "Pending").length;
   const liveInProgressCount = tasks.filter(t => t.status === "In Progress").length;
 
-  const totalComplaintsValue = 100000 + liveTotalQueueCount;
-  const resolvedTasksValue = 85000 + liveResolvedCount;
-  const pendingIssuesValue = 15000 + (livePendingCount + liveInProgressCount);
+  const totalComplaintsValue = dbTotals.total > 1000 ? dbTotals.total + liveTotalQueueCount : dbTotals.total;
+  const resolvedTasksValue = dbTotals.total > 1000 ? dbTotals.resolved + liveResolvedCount : dbTotals.resolved;
+  const pendingIssuesValue = dbTotals.total > 1000 ? dbTotals.pending + (livePendingCount + liveInProgressCount) : dbTotals.pending;
 
   // Compute CSAT dynamically: if high ratio of resolved tasks, CSAT is higher
   const calculatedCsat = useMemo(() => {
-    if (tasks.length === 0) return "92%";
+    if (dbTotals.csat && dbTotals.total <= 1000) return dbTotals.csat;
+    if (tasks.length === 0) return dbTotals.csat || "92%";
     const solvedRatio = liveResolvedCount / tasks.length;
     const baseVal = 91 + Math.round(solvedRatio * 4);
     return `${Math.min(98, Math.max(90, baseVal))}%`;
-  }, [tasks, liveResolvedCount]);
+  }, [tasks, liveResolvedCount, dbTotals]);
 
   return (
     <motion.div

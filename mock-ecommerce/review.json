@@ -1,13 +1,22 @@
 [
   {
-    "id": "AMZ-REV-89101",
-    "product": "EchoSound Pro Wireless Headphones",
+    "id": "ECOMM-REV-1001",
+    "customer_name": "Arjun Sharma",
+    "customer_email": "arjun.sharma@example.in",
+    "product": "Sony WH-1000XM5 Wireless Headphones",
     "rating": 1,
-    "reviewer": "Aarav Sharma",
-    "reviewer_email": "aarav.sharma@example.com",
-    "date": "2026-09-27T10:14:00Z",
-    "title": "Left earbud stopped charging after 3 days",
-    "content": "Terrible build quality. The left earbud stopped charging completely after 3 days of use. Case LED flashes red. Replacement request was ignored by seller.",
-    "verified_purchase": true
+    "review_title": "Damaged on arrival and wrong color sent!",
+    "review_text": "I ordered black headphones, but received silver ones with a cracked headband. The packaging was torn and the charging cable was missing. Completely unacceptable for a premium product.",
+    "date": "2026-03-28T10:15:00Z"
+  },
+  {
+    "id": "ECOMM-REV-1002",
+    "customer_name": "Pooja Patel",
+    "customer_email": "pooja.patel@example.in",
+    "product": "Samsung Galaxy S24 Ultra",
+    "rating": 1,
+    "review_title": "Charged twice on UPI but order shows failed",
+    "review_text": "Money was deducted twice from my bank account via Google Pay (₹1,24,999 each time), but the website gave an error and the order was never confirmed. Customer care is not answering.",
+    "date": "2026-03-29T14:22:00Z"
   }
 ]

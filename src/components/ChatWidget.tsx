@@ -38,7 +38,7 @@ export default function ChatWidget({ user, tasks }: ChatWidgetProps) {
     }
   }, [messages, isOpen]);
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputValue).trim();
     if (!query) return;
 
@@ -52,7 +52,43 @@ export default function ChatWidget({ user, tasks }: ChatWidgetProps) {
     };
     setMessages(prev => [...prev, userMsg]);
 
-    // Simple reply logic matching the mockup's mock reply rules
+    // Call backend intelligence route
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: query,
+          tone: "actionable",
+          role: user.role,
+          context: {
+            useTickets: true,
+            useCategories: true,
+            useDb: true,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.text) {
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `w-b-${Date.now()}`,
+              sender: "bot",
+              text: data.text,
+              timestamp: new Date(),
+            },
+          ]);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Backend chat failed, using fallback:", e);
+    }
+
+    // Fallback reply logic
     setTimeout(() => {
       let reply = "";
       const t = query.toLowerCase();
@@ -96,7 +132,7 @@ export default function ChatWidget({ user, tasks }: ChatWidgetProps) {
           timestamp: new Date()
         }
       ]);
-    }, 450);
+    }, 350);
   };
 
   const chips = user.role === "authority"
