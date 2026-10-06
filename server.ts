@@ -36,10 +36,19 @@ function getAiClient() {
   return aiClient;
 }
 
+import { getMemoryStats } from "./server/services/memoryStore";
+
 // Fetch live factual database snapshot for chatbot context
 async function getLiveDatabaseFacts(): Promise<string> {
   if (!isDbConnected()) {
-    return "Database currently offline. Using cached baseline operational thresholds.";
+    const s = getMemoryStats();
+    return `FACTUAL DATABASE SNAPSHOT (In-Memory Operational Stream):
+- Total Complaints Logged: ${s.totalComplaints}
+- Pending Complaints: ${s.pendingComplaints}
+- In Progress Complaints: ${s.inProgressComplaints}
+- Resolved Complaints: ${s.resolvedComplaints}
+- Critical Severity Complaints: ${s.criticalCount}
+- High Severity Complaints: ${s.highCount}`;
   }
 
   try {

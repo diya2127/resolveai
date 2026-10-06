@@ -49,6 +49,7 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
   const [ingestingId, setIngestingId] = useState<string | null>(null);
   const [ingestedMap, setIngestedMap] = useState<Record<string, boolean>>({});
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [gmailAutoSync, setGmailAutoSync] = useState<boolean>(true);
 
   // WhatsApp Simulator State
   const [waPhone, setWaPhone] = useState("+91 98201 12345");
@@ -232,6 +233,38 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
     fetchRecentSignals();
     if (onRefreshTasks) onRefreshTasks();
   };
+
+  // Continuous Gmail auto-polling every 20 seconds when Google account is connected
+  useEffect(() => {
+    if (!googleUser || !gmailAutoSync) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const messages = await fetchRecentGmailMessages(5);
+        if (messages.length > 0) {
+          setRealEmails(messages);
+          let newIngested = 0;
+          for (const msg of messages) {
+            if (!ingestedMap[msg.id]) {
+              try {
+                await ingestGmailEmailToResolveAI(msg);
+                setIngestedMap((prev) => ({ ...prev, [msg.id]: true }));
+                newIngested++;
+              } catch (e) {}
+            }
+          }
+          if (newIngested > 0) {
+            fetchRecentSignals();
+            if (onRefreshTasks) onRefreshTasks();
+          }
+        }
+      } catch (e) {
+        // quiet background refresh
+      }
+    }, 20000);
+
+    return () => clearInterval(interval);
+  }, [googleUser, gmailAutoSync, ingestedMap, onRefreshTasks]);
 
   // 1. Submit WhatsApp Simulation
   const handleSendWhatsApp = async (e: FormEvent) => {
@@ -674,14 +707,29 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
                     </div>
 
                     {googleUser && (
-                      <button
-                        onClick={loadRealGmailEmails}
-                        disabled={fetchingEmails}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-400 text-slate-700 rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${fetchingEmails ? "animate-spin" : ""}`} />
-                        <span>Refresh Inbox</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setGmailAutoSync(!gmailAutoSync)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
+                            gmailAutoSync
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                              : "bg-slate-100 text-slate-500 border-slate-200"
+                          }`}
+                          title="Continuous background inbox poller"
+                        >
+                          <span className={`w-2 h-2 rounded-full ${gmailAutoSync ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                          <span>{gmailAutoSync ? "Auto-Sync (20s) ON" : "Auto-Sync OFF"}</span>
+                        </button>
+
+                        <button
+                          onClick={loadRealGmailEmails}
+                          disabled={fetchingEmails}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-400 text-slate-700 rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${fetchingEmails ? "animate-spin" : ""}`} />
+                          <span>Refresh Inbox</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 

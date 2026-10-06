@@ -2,6 +2,7 @@ import { query, pool, isDbConnected } from "../config/db";
 import { analyzeComplaint, ComplaintAnalysisResult } from "./geminiService";
 import { detectRepeatedIssue } from "./repeatedIssueService";
 import { assignEmployeeForComplaint } from "./taskAssignmentService";
+import { addMemoryEntry } from "./memoryStore";
 
 export interface IncomingComplaintPayload {
   source: "Website" | "Gmail" | "WhatsApp" | "E-Commerce" | "Manual" | string;
@@ -43,12 +44,27 @@ export async function processIncomingMessage(payload: IncomingComplaintPayload):
 
   // Check if DB is connected
   if (!isDbConnected()) {
-    console.warn("[Ingestion] DB disconnected. Running in-memory classification.");
+    console.warn("[Ingestion] DB disconnected. Running in-memory classification and saving to live memory store.");
     const quickAnalysis = await analyzeComplaint(payload.message, payload.subject, payload.rating, false);
+    const { messageId, complaintId, taskId } = addMemoryEntry({
+      source: normalizedSource,
+      senderName: payload.senderName,
+      senderEmail: payload.senderEmail,
+      senderPhone: payload.senderPhone,
+      subject: payload.subject,
+      message: payload.message,
+      rating: payload.rating,
+      product: payload.product,
+      analysis: quickAnalysis,
+      assignedEmployeeName: "Keya",
+    });
     return {
       success: true,
-      messageId: null,
+      messageId,
+      complaintId,
+      taskId,
       isComplaint: true,
+      assignedEmployeeName: "Keya",
       analysis: quickAnalysis,
     };
   }

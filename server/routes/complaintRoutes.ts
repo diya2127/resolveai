@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { processIncomingMessage } from "../services/ingestionService";
 import { query, isDbConnected } from "../config/db";
+import { getMemoryComplaints, getMemoryComplaintById } from "../services/memoryStore";
 
 const router = Router();
 
@@ -43,11 +44,15 @@ router.post("/incoming", async (req: Request, res: Response) => {
 // 2. Query All Complaints with Filters
 router.get("/", async (req: Request, res: Response) => {
   try {
-    if (!isDbConnected()) {
-      return res.json({ complaints: [], total: 0 });
-    }
-
     const { status, severity, category, limit = "50", offset = "0" } = req.query;
+
+    if (!isDbConnected()) {
+      let memList = getMemoryComplaints(parseInt(limit as string, 10) || 50);
+      if (status) memList = memList.filter(c => c.status === status);
+      if (severity) memList = memList.filter(c => c.severity === severity);
+      if (category) memList = memList.filter(c => c.category_name === category);
+      return res.json({ complaints: memList, total: memList.length });
+    }
 
     const conditions: string[] = [];
     const params: any[] = [];
@@ -105,7 +110,11 @@ router.get("/:id", async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid complaint ID." });
 
-    if (!isDbConnected()) return res.status(404).json({ error: "Database not connected." });
+    if (!isDbConnected()) {
+      const memItem = getMemoryComplaintById(id);
+      if (!memItem) return res.status(404).json({ error: "Complaint not found." });
+      return res.json(memItem);
+    }
 
     const complaintRes = await query(
       `SELECT c.*, cat.category_name, sm.sender_name, sm.sender_email, sm.sender_phone, sm.product, sm.rating, s.source_name

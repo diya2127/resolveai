@@ -1,16 +1,18 @@
 import { Router, Request, Response } from "express";
 import { query, isDbConnected } from "../config/db";
+import { getMemoryTasks, updateMemoryTaskStatus, updateMemoryTaskNotes } from "../services/memoryStore";
 
 const router = Router();
 
 // 1. Get Tasks (Mapped to match Frontend Task interface { id, title, desc, priority, status, notes })
 router.get("/", async (req: Request, res: Response) => {
   try {
-    if (!isDbConnected()) {
-      return res.json({ tasks: [] });
-    }
-
     const { email, role, status } = req.query;
+
+    if (!isDbConnected()) {
+      const memTasks = getMemoryTasks(status as string);
+      return res.json({ tasks: memTasks });
+    }
 
     let sql = `
       SELECT 
@@ -94,6 +96,11 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
       return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
     }
 
+    if (!isDbConnected()) {
+      updateMemoryTaskStatus(taskId, status as any);
+      return res.json({ message: "Task and complaint status updated in memory.", status });
+    }
+
     // Update Task
     const updateTaskRes = await query(
       `UPDATE tasks SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE task_id = $2 RETURNING complaint_id`,
@@ -139,6 +146,11 @@ router.patch("/:id/notes", async (req: Request, res: Response) => {
     const { notes } = req.body;
 
     if (isNaN(taskId)) return res.status(400).json({ error: "Invalid task ID." });
+
+    if (!isDbConnected()) {
+      updateMemoryTaskNotes(taskId, notes || "");
+      return res.json({ message: "Notes saved in memory successfully.", notes });
+    }
 
     await query(
       `UPDATE tasks SET notes = $1, updated_at = CURRENT_TIMESTAMP WHERE task_id = $2`,

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { query, isDbConnected } from "../config/db";
+import { getMemoryStats } from "../services/memoryStore";
 
 const router = Router();
 
@@ -7,13 +8,7 @@ const router = Router();
 router.get("/stats", async (req: Request, res: Response) => {
   try {
     if (!isDbConnected()) {
-      return res.json({
-        totalComplaints: 0,
-        resolvedComplaints: 0,
-        pendingEscalations: 0,
-        csatRating: "89%",
-        resolutionRate: 0,
-      });
+      return res.json(getMemoryStats());
     }
 
     const statsRes = await query(`
