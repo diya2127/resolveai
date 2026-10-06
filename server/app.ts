@@ -45,20 +45,38 @@ export function ensureDbInitialized(): Promise<boolean> {
 // Middleware to ensure DB connection is initiated on requests
 app.use(async (req, res, next) => {
   if (!isDbConnected()) {
-    ensureDbInitialized().catch(() => {});
+    try {
+      await ensureDbInitialized();
+    } catch (e) {
+      console.warn("DB init in request middleware failed:", e);
+    }
   }
   next();
 });
 
-// Mount API Routers
-app.use("/api/auth", authRoutes);
-app.use("/api/complaints", complaintRoutes);
-app.use("/api/tasks", taskRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/ecommerce", ecommerceRoutes);
-app.use("/api/gmail", gmailRoutes);
-app.use("/api/whatsapp", whatsappRoutes);
+// Deployment & Database Health Check Endpoint
+app.get(["/api/health", "/health"], (req, res) => {
+  res.json({
+    status: "ok",
+    database: isDbConnected() ? "connected" : "disconnected",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Mount API Routers (supporting both /api/* and root paths for Vercel rewrites)
+const mountRoutes = (prefix: string) => {
+  app.use(`${prefix}/auth`, authRoutes);
+  app.use(`${prefix}/complaints`, complaintRoutes);
+  app.use(`${prefix}/tasks`, taskRoutes);
+  app.use(`${prefix}/dashboard`, dashboardRoutes);
+  app.use(`${prefix}/categories`, categoryRoutes);
+  app.use(`${prefix}/ecommerce`, ecommerceRoutes);
+  app.use(`${prefix}/gmail`, gmailRoutes);
+  app.use(`${prefix}/whatsapp`, whatsappRoutes);
+};
+
+mountRoutes("/api");
+mountRoutes("");
 
 // Realtime SSE stream
 app.get("/api/realtime/stream", (req, res) => {

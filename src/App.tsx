@@ -61,16 +61,7 @@ export default function App() {
 
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 2000);
-
-    // 0-Latency Real-Time SSE Push Stream
-    let sse: EventSource | null = null;
-    try {
-      sse = new EventSource("/api/realtime/stream");
-      sse.onmessage = () => {
-        fetchTasks();
-      };
-    } catch (e) {}
+    const interval = setInterval(fetchTasks, 3000);
 
     // Boot background Twilio auto-sync if credentials are saved
     try {
@@ -93,7 +84,6 @@ export default function App() {
 
     return () => {
       clearInterval(interval);
-      if (sse) sse.close();
     };
   }, [user]);
 
