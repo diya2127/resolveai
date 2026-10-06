@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, BarChart2, Folder, MessageSquare, Info, Mail, Menu, X, Share2, ShoppingBag } from "lucide-react";
+import { Sparkles, BarChart2, Folder, MessageSquare, Info, Mail, Menu, X, Share2 } from "lucide-react";
 import { User, Task } from "./types";
 import Auth from "./components/Auth";
 import Sidebar from "./components/Sidebar";
@@ -10,7 +10,6 @@ import AboutContact from "./components/AboutContact";
 import ChatbotHub from "./components/ChatbotHub";
 import ChatWidget from "./components/ChatWidget";
 import Integrations from "./components/Integrations";
-import MockStorefront from "./components/MockStorefront";
 import Logo from "./components/Logo";
 
 const initialTasks: Task[] = [
@@ -41,7 +40,7 @@ export default function App() {
     return defaultDemoUser;
   });
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [activeTab, setActiveTab] = useState<"overview" | "dashboard" | "integrations" | "storefront" | "categories" | "chatbot" | "about" | "contact">("dashboard");
+  const [activeTab, setActiveTab] = useState<"overview" | "dashboard" | "integrations" | "categories" | "chatbot" | "about" | "contact">("dashboard");
   const [profileSidebarOpen, setProfileSidebarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -124,7 +123,6 @@ export default function App() {
             {[
               { id: "overview", label: "Overview", icon: BarChart2 },
               { id: "dashboard", label: "My Queue", icon: Sparkles },
-              { id: "storefront", label: "Mock Storefront", icon: ShoppingBag },
               { id: "integrations", label: "Connected Apps", icon: Share2 },
               { id: "categories", label: "Categories", icon: Folder },
               { id: "chatbot", label: "AI Chatbot", icon: MessageSquare },
@@ -133,7 +131,6 @@ export default function App() {
             ].map(tab => {
               const IconComp = tab.icon;
               const isActive = activeTab === tab.id;
-              const isStorefront = tab.id === "storefront";
               return (
                 <button
                   key={tab.id}
@@ -141,8 +138,6 @@ export default function App() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition cursor-pointer ${
                     isActive
                       ? "bg-brand-primary/15 text-brand-primary border border-brand-primary/25 font-bold"
-                      : isStorefront
-                      ? "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
                       : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 border border-transparent"
                   }`}
                 >
@@ -180,7 +175,6 @@ export default function App() {
             {[
               { id: "overview", label: "Overview", icon: BarChart2 },
               { id: "dashboard", label: "My Queue", icon: Sparkles },
-              { id: "storefront", label: "Mock Storefront", icon: ShoppingBag },
               { id: "integrations", label: "Connected Apps", icon: Share2 },
               { id: "categories", label: "Categories", icon: Folder },
               { id: "chatbot", label: "AI Chatbot", icon: MessageSquare },
@@ -215,7 +209,6 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === "overview" && <Overview tasks={tasks} />}
         {activeTab === "dashboard" && <Dashboard user={user} tasks={tasks} setTasks={setTasks} />}
-        {activeTab === "storefront" && <MockStorefront onNavigateToQueue={() => setActiveTab("dashboard")} onRefreshTasks={fetchTasks} />}
         {activeTab === "integrations" && <Integrations onRefreshTasks={fetchTasks} onNavigateToDashboard={() => setActiveTab("dashboard")} />}
         {activeTab === "categories" && <Categories />}
         {activeTab === "chatbot" && <ChatbotHub user={user} />}
