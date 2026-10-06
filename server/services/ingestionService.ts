@@ -22,10 +22,12 @@ export interface IngestionResult {
   messageId: number | null;
   complaintId?: number | null;
   taskId?: number | null;
-  isComplaint: boolean;
+  isComplaint?: boolean;
   assignedEmployeeName?: string | null;
-  analysis: ComplaintAnalysisResult;
+  analysis?: ComplaintAnalysisResult;
   error?: string;
+  duplicate?: boolean;
+  message?: string;
 }
 
 export async function processIncomingMessage(payload: IncomingComplaintPayload): Promise<IngestionResult> {
@@ -88,6 +90,44 @@ export async function processIncomingMessage(payload: IncomingComplaintPayload):
       sourceId = insertSource.rows[0].source_id;
     }
 
+    // 2.5 DEDUPLICATION CHECK: Never create duplicate tickets for the same message
+    if (payload.externalMessageId) {
+      const existing = await client.query(
+        `SELECT message_id FROM source_messages WHERE external_message_id = $1 LIMIT 1`,
+        [payload.externalMessageId]
+      );
+      if (existing.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return {
+          success: true,
+          duplicate: true,
+          messageId: existing.rows[0].message_id,
+          message: "Message already ingested; skipped duplicate.",
+        };
+      }
+    }
+
+    // Also check for duplicate identical text from the same sender
+    if (payload.senderPhone || payload.senderEmail) {
+      const senderCol = payload.senderPhone ? "sender_phone" : "sender_email";
+      const senderVal = payload.senderPhone || payload.senderEmail;
+      const dupMsg = await client.query(
+        `SELECT message_id FROM source_messages 
+         WHERE ${senderCol} = $1 AND TRIM(message_content) = TRIM($2)
+         LIMIT 1`,
+        [senderVal, payload.message.trim()]
+      );
+      if (dupMsg.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return {
+          success: true,
+          duplicate: true,
+          messageId: dupMsg.rows[0].message_id,
+          message: "Duplicate message from this sender already exists; skipped duplicate.",
+        };
+      }
+    }
+
     // 3. Store SOURCE_MESSAGE
     const insertMessage = await client.query(
       `INSERT INTO source_messages (
@@ -146,13 +186,15 @@ export async function processIncomingMessage(payload: IncomingComplaintPayload):
     );
 
     // 7. Determine whether it is a complaint:
-    // Any rating <= 3, negative or neutral sentiment, or direct website/gmail/whatsapp/manual submissions qualify
+    // Any direct WhatsApp, Gmail, Website, or low-rating/negative feedback qualifies
     const isComplaint =
+      normalizedSource === "WhatsApp" ||
+      normalizedSource === "Gmail" ||
+      normalizedSource === "Website" ||
+      normalizedSource === "Manual" ||
       analysis.sentiment === "Negative" ||
       analysis.sentiment === "Neutral" ||
-      (payload.rating !== undefined && payload.rating !== null && payload.rating <= 3) ||
-      normalizedSource === "Website" ||
-      normalizedSource === "Manual";
+      (payload.rating !== undefined && payload.rating !== null && payload.rating <= 3);
 
     let complaintId: number | null = null;
     let taskId: number | null = null;

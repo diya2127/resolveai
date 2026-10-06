@@ -18,20 +18,24 @@ router.get("/", async (req: Request, res: Response) => {
         c.complaint_id, c.subject as complaint_subject, c.description as complaint_desc, c.severity,
         cat.category_name,
         u.name as employee_name, u.email as employee_email,
-        d.department_name
+        d.department_name,
+        s.source_name,
+        sm.sender_name, sm.sender_email
       FROM tasks t
       JOIN complaints c ON t.complaint_id = c.complaint_id
       LEFT JOIN categories cat ON c.category_id = cat.category_id
       LEFT JOIN employees e ON t.assigned_employee_id = e.employee_id
       LEFT JOIN users u ON e.user_id = u.user_id
       LEFT JOIN departments d ON e.department_id = d.department_id
+      LEFT JOIN source_messages sm ON c.message_id = sm.message_id
+      LEFT JOIN sources s ON sm.source_id = s.source_id
     `;
 
     const conditions: string[] = [];
     const params: any[] = [];
 
-    // Filter by employee email if specified and role is employee
-    if (email && role !== "authority") {
+    // Filter by employee email only if explicitly requested with filter=mine
+    if (req.query.filter === "mine" && email) {
       params.push(email);
       conditions.push(`u.email = $${params.length}`);
     }
@@ -45,7 +49,7 @@ router.get("/", async (req: Request, res: Response) => {
       sql += ` WHERE ${conditions.join(" AND ")}`;
     }
 
-    sql += ` ORDER BY CASE t.priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END, t.created_at DESC`;
+    sql += ` ORDER BY t.created_at DESC, t.task_id DESC`;
 
     const result = await query(sql, params);
 
@@ -64,6 +68,9 @@ router.get("/", async (req: Request, res: Response) => {
       employeeName: row.employee_name,
       category: row.category_name,
       severity: row.severity,
+      source: row.source_name || "Website",
+      senderName: row.sender_name || "Customer",
+      senderEmail: row.sender_email || "",
     }));
 
     return res.json({ tasks: formattedTasks });

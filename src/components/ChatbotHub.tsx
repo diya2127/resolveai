@@ -241,7 +241,7 @@ export default function ChatbotHub({ user }: ChatbotHubProps) {
             </div>
             <div>
               <h2 className="font-display font-semibold text-sm text-brand-secondary">ResolveAI Chatbot</h2>
-              <span className="text-[10px] text-slate-400 font-medium">Model: gemini-3.5-flash • Full Context Scope</span>
+              <span className="text-[10px] text-slate-400 font-medium">Model: gemini-3.8-flash • Full Context Scope</span>
             </div>
           </div>
           <div className="flex items-center gap-4">

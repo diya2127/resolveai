@@ -254,4 +254,40 @@ router.get("/inflow-volumes", async (req: Request, res: Response) => {
   }
 });
 
+// 7. Live Database Explorer - Inspect live tables
+router.get("/database-explorer", async (req: Request, res: Response) => {
+  try {
+    const table = (req.query.table as string) || "complaints";
+    const allowedTables = ["complaints", "tasks", "source_messages", "sources", "employees", "status_history"];
+    if (!allowedTables.includes(table)) {
+      return res.status(400).json({ error: "Invalid table requested." });
+    }
+
+    const countRes = await query(`SELECT COUNT(*) as count FROM ${table}`);
+    const rowsRes = await query(`SELECT * FROM ${table} ORDER BY 1 DESC LIMIT 35`);
+
+    // Get count for all tables
+    const tableCounts: Record<string, number> = {};
+    for (const t of allowedTables) {
+      try {
+        const c = await query(`SELECT COUNT(*) as count FROM ${t}`);
+        tableCounts[t] = parseInt(c.rows[0]?.count || "0", 10);
+      } catch (e) {
+        tableCounts[t] = 0;
+      }
+    }
+
+    return res.json({
+      activeTable: table,
+      totalRows: parseInt(countRes.rows[0]?.count || "0", 10),
+      columns: rowsRes.fields.map(f => f.name),
+      rows: rowsRes.rows,
+      tableCounts,
+    });
+  } catch (error: any) {
+    console.error("Database explorer error:", error);
+    return res.status(500).json({ error: error.message || "Failed to inspect database." });
+  }
+});
+
 export default router;

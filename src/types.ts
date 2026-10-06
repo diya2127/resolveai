@@ -18,6 +18,14 @@ export interface Task {
   status: TaskStatus;
   notesOpen?: boolean;
   notes: string;
+  source?: "Gmail" | "WhatsApp" | "E-Commerce" | "Website" | "Manual" | string;
+  senderName?: string;
+  senderEmail?: string;
+  senderPhone?: string;
+  category?: string;
+  severity?: string;
+  employeeName?: string;
+  department?: string;
 }
 
 export interface Category {

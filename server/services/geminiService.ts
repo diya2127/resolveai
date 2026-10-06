@@ -148,7 +148,7 @@ Repeated Signal Pattern Detected: ${repeatedFlagHint ? "YES" : "NO"}
 `;
 
     const response = await client.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       contents: prompt,
       config: {
         temperature: 0.2,
@@ -185,4 +185,39 @@ Repeated Signal Pattern Detected: ${repeatedFlagHint ? "YES" : "NO"}
     fallback.repeatedIssue = repeatedFlagHint;
     return fallback;
   }
+}
+
+// Generates an empathetic resolution reply for agents to send to customers
+export async function generateResolutionDraft(
+  customerName: string,
+  issueDescription: string,
+  channel: string = "WhatsApp"
+): Promise<string> {
+  const client = getAiClient();
+  const prompt = `You are a helpful customer support resolution specialist at an enterprise company.
+A customer named "${customerName || 'Customer'}" reached out via ${channel} with this complaint:
+"${issueDescription}"
+
+Draft a polite, empathetic, concise resolution reply for them.
+- If channel is WhatsApp: Keep it short (under 75 words), empathetic, professional, formatted nicely with clean emoji.
+- If channel is Gmail/Email: Include a polite greeting, clear explanation of the resolution steps, and a warm closing.
+Do NOT include generic bracketed placeholders like [Your Name] or [Company Name] — sign off as "Customer Care Team".`;
+
+  if (client) {
+    try {
+      const response = await client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      if (response.text) return response.text.trim();
+    } catch (e) {
+      console.warn("Gemini draft reply error:", e);
+    }
+  }
+
+  // Fallback templates
+  if (channel.toLowerCase().includes("whatsapp")) {
+    return `Hello ${customerName || 'there'}, thank you for contacting us. We apologize for the inconvenience regarding: "${issueDescription.substring(0, 50)}...". Our operations team has reviewed your ticket and initiated corrective action. You will receive tracking/refund confirmation shortly. Best regards, Customer Care Team`;
+  }
+  return `Dear ${customerName || 'Valued Customer'},\n\nThank you for reaching out to us. We have reviewed your issue regarding "${issueDescription.substring(0, 60)}..." and our operations team has taken immediate corrective action to resolve it.\n\nPlease let us know if you need any further assistance.\n\nWarm regards,\nCustomer Care Operations`;
 }

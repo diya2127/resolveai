@@ -1,7 +1,22 @@
-import { useState, useEffect, Dispatch, SetStateAction } from "react";
+import { useState, Dispatch, SetStateAction } from "react";
 import { motion } from "motion/react";
-import { CheckCircle, AlertOctagon, User, Clock, ChevronDown, Check, Save, Sparkles, TrendingDown, Activity, BarChart3, Award, TrendingUp, Inbox } from "lucide-react";
-import { User as UserType, Task, DepartmentPerformance, TaskPriority, TaskStatus } from "../types";
+import {
+  CheckCircle,
+  Clock,
+  ChevronDown,
+  Check,
+  Save,
+  TrendingDown,
+  User,
+  MessageCircle,
+  Mail,
+  ShoppingBag,
+  Globe,
+  Sparkles,
+  RefreshCw,
+  Search,
+} from "lucide-react";
+import { User as UserType, Task, TaskPriority, TaskStatus } from "../types";
 
 interface DashboardProps {
   user: UserType;
@@ -9,85 +24,80 @@ interface DashboardProps {
   setTasks: Dispatch<SetStateAction<Task[]>>;
 }
 
-const deptsData: DepartmentPerformance[] = [
-  { name: "Logistics & Delivery", pct: 78 },
-  { name: "Finance / Refunds", pct: 65 },
-  { name: "Customer Support", pct: 88 },
-  { name: "Technical / Platform", pct: 71 },
-  { name: "Accounts & Billing", pct: 82 }
-];
-
 export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
-  const isAuthority = user.role === "authority";
-
-  // State to manage task note updates
   const [activeNotes, setActiveNotes] = useState<{ [key: string]: string }>({});
+  const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [drafts, setDrafts] = useState<{ [key: string]: string }>({});
+  const [draftLoading, setDraftLoading] = useState<{ [key: string]: boolean }>({});
+  const [copiedDraftId, setCopiedDraftId] = useState<string | null>(null);
 
-  // Authority Live Data State
-  const [kpiStats, setKpiStats] = useState({
-    totalComplaints: "50,000",
-    resolvedComplaints: "42,000",
-    pendingEscalations: "8,000",
-    csatRating: "89%",
-  });
-  const [departments, setDepartments] = useState<DepartmentPerformance[]>(deptsData);
-  const [severityDistribution, setSeverityDistribution] = useState([
-    { level: "Critical Priority", pct: 15, color: "from-[#38BDF8] to-brand-warning" },
-    { level: "High Priority", pct: 35, color: "from-[#6366F1] to-[#38BDF8]" },
-    { level: "Medium Priority", pct: 38, color: "from-[#312E81] to-[#6366F1]" },
-    { level: "Low Routine Priority", pct: 12, color: "from-[#1E1B4B] via-[#312E81] to-[#6366F1]" },
-  ]);
-  const [incidents, setIncidents] = useState([
-    { issue: "Payment gateway failure logs", cat: "Payment", reports: 340, sev: "Critical", status: "Pending" },
-    { issue: "Metro hub distribution bottlenecks", cat: "Delivery", reports: 9000, sev: "High", status: "In Progress" },
-    { issue: "Legacy authentication reset failure", cat: "Account", reports: 800, sev: "High", status: "In Progress" },
-    { issue: "Package structural damage logs", cat: "Product", reports: 412, sev: "Medium", status: "Pending" },
-    { issue: "Escalated SLA refund delays > 15d", cat: "Refund", reports: 265, sev: "Medium", status: "Resolved" }
-  ]);
-
-  useEffect(() => {
-    if (!isAuthority) return;
-
-    const fetchAuthorityData = async () => {
-      try {
-        const [statsRes, deptRes, sevRes, incRes] = await Promise.all([
-          fetch("/api/dashboard/stats"),
-          fetch("/api/dashboard/departments"),
-          fetch("/api/dashboard/severity-distribution"),
-          fetch("/api/dashboard/incidents"),
-        ]);
-
-        if (statsRes.ok) {
-          const s = await statsRes.json();
-          setKpiStats({
-            totalComplaints: s.totalComplaints > 0 ? s.totalComplaints.toLocaleString() : "50,000",
-            resolvedComplaints: s.resolvedComplaints > 0 ? s.resolvedComplaints.toLocaleString() : "42,000",
-            pendingEscalations: s.pendingEscalations > 0 ? s.pendingEscalations.toLocaleString() : "8,000",
-            csatRating: s.csatRating || "89%",
-          });
-        }
-
-        if (deptRes.ok) {
-          const d = await deptRes.json();
-          if (Array.isArray(d) && d.length > 0) setDepartments(d);
-        }
-
-        if (sevRes.ok) {
-          const sv = await sevRes.json();
-          if (Array.isArray(sv) && sv.length > 0) setSeverityDistribution(sv);
-        }
-
-        if (incRes.ok) {
-          const inc = await incRes.json();
-          if (Array.isArray(inc) && inc.length > 0) setIncidents(inc);
-        }
-      } catch (err) {
-        console.warn("Could not load authority metrics from backend, using baseline:", err);
+  const handleGenerateDraft = async (task: Task) => {
+    setDraftLoading(prev => ({ ...prev, [task.id]: true }));
+    try {
+      const res = await fetch("/api/complaints/draft-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: task.senderName || "Customer",
+          message: task.desc,
+          channel: task.source || "WhatsApp",
+        }),
+      });
+      const data = await res.json();
+      if (data.draft) {
+        setDrafts(prev => ({ ...prev, [task.id]: data.draft }));
+        setActiveNotes(prev => ({ ...prev, [task.id]: data.draft }));
+        // Open notes drawer to show the draft
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, notesOpen: true } : t));
       }
-    };
+    } catch (e) {
+      console.warn("Failed to generate AI draft:", e);
+    } finally {
+      setDraftLoading(prev => ({ ...prev, [task.id]: false }));
+    }
+  };
 
-    fetchAuthorityData();
-  }, [isAuthority]);
+  const handleCopyDraft = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedDraftId(id);
+    setTimeout(() => setCopiedDraftId(null), 2500);
+  };
+
+  const [sentSuccessId, setSentSuccessId] = useState<string | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+
+  const handleSendOutboundWhatsApp = async (task: Task, text: string) => {
+    const phone = task.senderPhone || (task.senderName?.match(/\+?\d[\d\s-]{8,}/) ? task.senderName : null);
+    if (!phone) {
+      alert("No customer phone number found on this ticket to send WhatsApp message.");
+      return;
+    }
+
+    setSendingId(task.id);
+    try {
+      const res = await fetch("/api/whatsapp/send-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toPhone: phone,
+          message: text,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSentSuccessId(task.id);
+        handleSaveNotes(task.id, `Dispatched reply to WhatsApp: "${text.substring(0, 45)}..."`);
+        setTimeout(() => setSentSuccessId(null), 4000);
+      } else {
+        alert(data.error || "Failed to dispatch WhatsApp reply. Please ensure Twilio is configured.");
+      }
+    } catch (e: any) {
+      alert(e.message || "Network error dispatching WhatsApp reply.");
+    } finally {
+      setSendingId(null);
+    }
+  };
 
   const handleAcceptTask = async (id: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: "In Progress" } : t));
@@ -128,24 +138,23 @@ export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
         body: JSON.stringify({ notes: text }),
       });
     } catch (err) {
-      console.warn("Could not save task notes to backend:", err);
+      console.warn("Could not persist note update to backend:", err);
     }
   };
 
-  // Helper colors
-  const getPriorityBadge = (p: TaskPriority) => {
-    switch (p) {
+  const getPriorityBadge = (priority: TaskPriority) => {
+    switch (priority) {
       case "High":
-        return <span className="px-2.5 py-1 text-[11px] font-bold font-mono uppercase tracking-wider rounded-lg bg-red-50 text-red-600 border border-red-100">High</span>;
+        return <span className="px-2.5 py-1 text-[11px] font-bold font-mono uppercase tracking-wider rounded-lg bg-red-50 text-brand-danger border border-red-100">High Priority</span>;
       case "Medium":
         return <span className="px-2.5 py-1 text-[11px] font-bold font-mono uppercase tracking-wider rounded-lg bg-amber-50 text-brand-warning border border-amber-100">Medium</span>;
       case "Low":
-        return <span className="px-2.5 py-1 text-[11px] font-bold font-mono uppercase tracking-wider rounded-lg bg-slate-50 text-slate-500 border border-slate-100">Low</span>;
+        return <span className="px-2.5 py-1 text-[11px] font-bold font-mono uppercase tracking-wider rounded-lg bg-slate-100 text-slate-500 border border-slate-200">Routine</span>;
     }
   };
 
-  const getStatusBadge = (s: TaskStatus) => {
-    switch (s) {
+  const getStatusBadge = (status: TaskStatus) => {
+    switch (status) {
       case "Resolved":
         return <span className="px-2.5 py-1 text-[11px] font-bold font-mono uppercase tracking-wider rounded-lg bg-emerald-50 text-brand-success border border-emerald-100">Resolved</span>;
       case "In Progress":
@@ -155,222 +164,37 @@ export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
     }
   };
 
-  if (!isAuthority) {
-    // EMPLOYEE VIEWS
-    const pendingTasks = tasks.filter(t => t.status !== "Resolved");
-    const completedCount = tasks.filter(t => t.status === "Resolved").length;
+  const pendingTasks = tasks.filter(t => t.status !== "Resolved");
+  const completedCount = tasks.filter(t => t.status === "Resolved").length;
 
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="space-y-6"
-      >
-        {/* Welcome Block */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-          <div>
-            <h1 className="font-display font-bold text-2xl text-brand-secondary md:text-3xl">Good to see you, {user.name.split(" ")[0]}</h1>
-            <p className="text-sm text-slate-500 mt-1">{user.dept} • AI-assigned active feedback queue</p>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 bg-emerald-50 border border-emerald-100 text-brand-success rounded-xl">
-            <span className="w-2 h-2 rounded-full bg-brand-success" />
-            Duty Active
-          </div>
-        </div>
+  const waCount = tasks.filter(t => (t.source || "").toLowerCase().includes("whatsapp")).length;
+  const gmCount = tasks.filter(t => (t.source || "").toLowerCase().includes("gmail")).length;
+  const ecCount = tasks.filter(t => (t.source || "").toLowerCase().includes("commerce")).length;
+  const wbCount = tasks.filter(t => (t.source || "").toLowerCase().includes("web")).length;
 
-        {/* Employee Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: "Today's Tasks", value: pendingTasks.length, delta: `${tasks.filter(t => t.priority === "High" && t.status !== "Resolved").length} high priority`, icon: Clock, iconColor: "text-amber-600 bg-amber-50" },
-            { label: "Resolved this week", value: 21 + completedCount, delta: "▲ ahead of quota", icon: CheckCircle, iconColor: "text-brand-success bg-emerald-50" },
-            { label: "Avg response", value: "3.2h", delta: "▼ 0.6h faster", icon: TrendingDown, iconColor: "text-brand-primary bg-brand-primary-soft" },
-            { label: "CSAT rating", value: "4.6★", delta: "from closed tickets", icon: User, iconColor: "text-brand-secondary bg-slate-100" }
-          ].map((stat, i) => (
-            <div key={i} className="bg-brand-card p-5 rounded-2xl border border-slate-100 shadow-sm flex items-start justify-between">
-              <div>
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{stat.label}</span>
-                <h2 className="font-display font-bold text-3xl text-brand-secondary mt-2">{stat.value}</h2>
-                <span className="text-xs text-slate-400 font-medium block mt-1">{stat.delta}</span>
-              </div>
-              <div className={`p-2.5 rounded-xl ${stat.iconColor}`}>
-                <stat.icon className="w-5 h-5" />
-              </div>
-            </div>
-          ))}
-        </div>
+  const filteredTasks = tasks.filter(task => {
+    // Channel filter
+    if (channelFilter === "whatsapp" && !(task.source || "").toLowerCase().includes("whatsapp")) return false;
+    if (channelFilter === "gmail" && !(task.source || "").toLowerCase().includes("gmail")) return false;
+    if (channelFilter === "ecommerce" && !(task.source || "").toLowerCase().includes("commerce")) return false;
+    if (channelFilter === "website" && !(task.source || "").toLowerCase().includes("web")) return false;
 
-        {/* Workspace Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Queue Task List */}
-          <div className="space-y-4 lg:col-span-2">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="font-display font-semibold text-base text-brand-secondary">My Workspace Queue</h3>
-              <span className="px-2.5 py-0.5 text-xs font-mono font-bold bg-brand-primary-soft text-brand-primary border border-brand-primary/20 rounded-full">
-                {pendingTasks.length} Assigned
-              </span>
-            </div>
+    // Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const match =
+        task.title.toLowerCase().includes(q) ||
+        task.desc.toLowerCase().includes(q) ||
+        (task.senderName || "").toLowerCase().includes(q) ||
+        (task.senderEmail || "").toLowerCase().includes(q) ||
+        (task.category || "").toLowerCase().includes(q) ||
+        (task.id || "").toLowerCase().includes(q);
+      if (!match) return false;
+    }
 
-            <div className="grid gap-4">
-              {tasks.map(task => (
-                <div key={task.id} className="bg-brand-card rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4 hover:border-brand-primary/30 transition-all duration-250">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-semibold text-slate-400">{task.id}</span>
-                        <span className="text-xs text-slate-300">•</span>
-                        <h4 className="font-display font-bold text-base text-brand-secondary">{task.title}</h4>
-                      </div>
-                      <p className="text-sm text-slate-500 mt-2 leading-relaxed">{task.desc}</p>
-                    </div>
-                    <div className="flex gap-2 flex-wrap items-center">
-                      {getPriorityBadge(task.priority)}
-                      {getStatusBadge(task.status)}
-                    </div>
-                  </div>
+    return true;
+  });
 
-                  {/* Task History / Actions */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-50">
-                    <div className="flex items-center gap-2">
-                      {task.status === "Pending" && (
-                        <button
-                          onClick={() => handleAcceptTask(task.id)}
-                          className="px-4 py-2 bg-brand-primary hover:opacity-90 text-white font-semibold text-xs rounded-xl shadow-sm shadow-brand-primary/10 transition flex items-center gap-1.5"
-                        >
-                          <Check className="w-3.5 h-3.5" /> Accept Task
-                        </button>
-                      )}
-                      {task.status === "In Progress" && (
-                        <button
-                          onClick={() => handleResolveTask(task.id)}
-                          className="px-4 py-2 bg-brand-success hover:bg-emerald-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-emerald-50 transition flex items-center gap-1.5"
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" /> Mark Resolved
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleToggleNotes(task.id)}
-                        className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-semibold text-xs rounded-xl border border-slate-100 transition flex items-center gap-1.5"
-                      >
-                        {task.notesOpen ? "Close Notes" : "Add/Edit Note"}
-                        <ChevronDown className={`w-3 h-3 transition-transform ${task.notesOpen ? "rotate-180" : ""}`} />
-                      </button>
-                    </div>
-
-                    {task.notes && (
-                      <span className="text-xs font-mono text-slate-400 max-w-xs truncate">
-                        Latest: "{task.notes}"
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Progress notes expanded textarea */}
-                  {task.notesOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="pt-3 border-t border-dashed border-slate-100 space-y-3"
-                    >
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Progress Update Note</label>
-                      <textarea
-                        placeholder="Type diagnostic results, customer response, or system resolution logs here..."
-                        className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-brand-primary focus:bg-white outline-none min-height-[80px]"
-                        value={activeNotes[task.id] !== undefined ? activeNotes[task.id] : (task.notes || "")}
-                        onChange={e => setActiveNotes({ ...activeNotes, [task.id]: e.target.value })}
-                      />
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleSaveNotes(task.id, activeNotes[task.id] !== undefined ? activeNotes[task.id] : (task.notes || ""))}
-                          className="px-4 py-1.5 bg-brand-secondary hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5"
-                        >
-                          <Save className="w-3 h-3" /> Save Note
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Agent Specific Performance & Metric Graphs */}
-          <div className="space-y-6">
-            {/* Graph 1: Resolution Velocity Trend */}
-            <div className="bg-brand-card p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-display font-semibold text-sm text-brand-secondary">My Resolution Velocity</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Tasks processed hour-by-hour</p>
-                </div>
-                <BarChart3 className="w-4 h-4 text-brand-primary" />
-              </div>
-              <div className="h-28 flex items-end justify-between gap-2 pt-2">
-                {[
-                  { hour: "9a", val: 3, color: "bg-[#4F46E5]" },
-                  { hour: "11a", val: 5, color: "bg-[#06B6D4]" },
-                  { hour: "1p", val: 8, color: "bg-[#14B8A6]" },
-                  { hour: "3p", val: 6, color: "bg-[#312E81]" },
-                  { hour: "5p", val: 9, color: "bg-[#38BDF8]" },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <div className="text-[9px] font-mono text-slate-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                      {item.val}
-                    </div>
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: `${(item.val / 9) * 100}%` }}
-                      transition={{ duration: 0.8, delay: idx * 0.1 }}
-                      className={`w-full rounded-t-md ${item.color} group-hover:opacity-85 transition-opacity cursor-pointer`}
-                      style={{ height: "40px" }}
-                    />
-                    <span className="text-[10px] font-mono font-semibold text-slate-400">{item.hour}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Graph 2: CSAT Customer Feedback Proportions */}
-            <div className="bg-brand-card p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-display font-semibold text-sm text-brand-secondary">Workstation Feedback (CSAT)</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Distribution of 5★ ratings today</p>
-                </div>
-                <Award className="w-4 h-4 text-brand-success animate-pulse" />
-              </div>
-
-              <div className="space-y-2.5">
-                {[
-                  { stars: "5 Stars", pct: 70, color: "from-[#312E81] to-[#4F46E5]" },
-                  { stars: "4 Stars", pct: 20, color: "from-[#4F46E5] to-[#06B6D4]" },
-                  { stars: "3 Stars", pct: 8, color: "from-[#06B6D4] to-[#14B8A6]" },
-                  { stars: "1-2 Stars", pct: 2, color: "from-[#1E1B4B] via-[#4F46E5] to-[#14B8A6]" },
-                ].map((feedback, idx) => (
-                  <div key={idx} className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-semibold text-slate-500">
-                      <span>{feedback.stars}</span>
-                      <span className="font-mono text-brand-secondary">{feedback.pct}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-100">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${feedback.pct}%` }}
-                        transition={{ duration: 0.9, delay: idx * 0.1 }}
-                        className={`h-full bg-gradient-to-r ${feedback.color} rounded-full`}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
-  // ADMINISTRATOR DASHBOARD
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -378,27 +202,33 @@ export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
       exit={{ opacity: 0 }}
       className="space-y-6"
     >
-      {/* Overview Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+      {/* Welcome & Role Block */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
-          <h1 className="font-display font-bold text-2xl text-brand-secondary md:text-3xl">Corporate Health Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-1">Real-time status trackers, department performance monitors, and predictive indicators</p>
+          <h1 className="font-display font-bold text-2xl text-brand-secondary md:text-3xl">
+            Workspace Ticket Queue
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Logged in as <strong>{user.name}</strong> • Live feedback incoming from WhatsApp, Gmail, E-Commerce &amp; Web
+          </p>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-secondary text-white text-xs font-semibold rounded-xl font-mono uppercase tracking-wider">
-          <Sparkles className="w-3.5 h-3.5 text-brand-primary animate-pulse" />
-          Administrator Access
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-brand-success rounded-xl">
+            <span className="w-2 h-2 rounded-full bg-brand-success animate-pulse" />
+            Live Sync Active
+          </div>
         </div>
       </div>
 
-      {/* KPI Stats Authority */}
+      {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Active Feedback", value: kpiStats.totalComplaints, delta: "Cumulative this year", icon: TrendingDown, iconColor: "text-slate-600 bg-slate-100" },
-          { label: "Resolved Tickets", value: kpiStats.resolvedComplaints, delta: "84% standard rate", icon: CheckCircle, iconColor: "text-brand-success bg-emerald-50" },
-          { label: "Pending Escalations", value: kpiStats.pendingEscalations, delta: "Assigned & under review", icon: AlertOctagon, iconColor: "text-red-500 bg-red-50" },
-          { label: "Customer Loyalty Index", value: kpiStats.csatRating, delta: "Consistent month-over-month", icon: User, iconColor: "text-brand-primary bg-brand-primary-soft" }
+          { label: "Active Tickets", value: pendingTasks.length, delta: `${tasks.filter(t => t.priority === "High" && t.status !== "Resolved").length} high priority`, icon: Clock, iconColor: "text-amber-600 bg-amber-50" },
+          { label: "Resolved Tickets", value: completedCount, delta: "Closed tickets", icon: CheckCircle, iconColor: "text-brand-success bg-emerald-50" },
+          { label: "WhatsApp Tickets", value: waCount, delta: "Incoming mobile chats", icon: MessageCircle, iconColor: "text-emerald-600 bg-emerald-50" },
+          { label: "Gmail Tickets", value: gmCount, delta: "Customer support emails", icon: Mail, iconColor: "text-red-600 bg-red-50" },
         ].map((stat, i) => (
-          <div key={i} className="bg-brand-card p-5 rounded-2xl border border-slate-100 shadow-sm flex items-start justify-between">
+          <div key={i} className="bg-brand-card p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-start justify-between">
             <div>
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{stat.label}</span>
               <h2 className="font-display font-bold text-3xl text-brand-secondary mt-2">{stat.value}</h2>
@@ -411,243 +241,237 @@ export default function Dashboard({ user, tasks, setTasks }: DashboardProps) {
         ))}
       </div>
 
-      {/* Executive Forecast & Signals Analysis Graphs */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Graph 1: Corporate Weekly Signals Trend */}
-        <div className="bg-brand-card p-6 rounded-2xl border border-slate-100 shadow-sm lg:col-span-2 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-display font-semibold text-base text-brand-secondary">Corporate Inflow Volumes</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Macro intelligence tracking incoming case signals daily</p>
-              </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-primary-soft text-brand-primary text-xs font-semibold rounded-lg font-mono">
-                <TrendingUp className="w-3.5 h-3.5" /> +14.2% Growth
-              </div>
-            </div>
-            <div className="relative pt-4 h-44 w-full">
-              <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="corpAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.25" />
-                    <stop offset="50%" stopColor="#6366F1" stopOpacity="0.1" />
-                    <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity="0.0" />
-                  </linearGradient>
-                  <linearGradient id="corpLineGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#6366F1" />
-                    <stop offset="50%" stopColor="#38BDF8" />
-                    <stop offset="100%" stopColor="#14B8A6" />
-                  </linearGradient>
-                </defs>
-                {/* Gridlines */}
-                <line x1="0" y1="20" x2="500" y2="20" stroke="rgba(15, 23, 42, 0.06)" strokeDasharray="3 3" />
-                <line x1="0" y1="60" x2="500" y2="60" stroke="rgba(15, 23, 42, 0.06)" strokeDasharray="3 3" />
-                <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(15, 23, 42, 0.06)" strokeDasharray="3 3" />
-
-                {/* Filled Area */}
-                <motion.path
-                  d="M 10 90 Q 90 60 170 80 T 330 30 T 490 50 L 490 120 L 10 120 Z"
-                  fill="url(#corpAreaGrad)"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 1.1 }}
-                />
-
-                {/* Smooth Curve path */}
-                <motion.path
-                  d="M 10 90 Q 90 60 170 80 T 330 30 T 490 50"
-                  fill="none"
-                  stroke="url(#corpLineGrad)"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 1.3, ease: "easeInOut" }}
-                />
-
-                {/* Circles for nodes */}
-                {[
-                  { x: 10, y: 90, val: "15k" },
-                  { x: 90, y: 60, val: "18k" },
-                  { x: 170, y: 80, val: "25k" },
-                  { x: 250, y: 45, val: "22k" },
-                  { x: 330, y: 30, val: "30k" },
-                  { x: 410, y: 70, val: "14k" },
-                  { x: 490, y: 50, val: "10k" },
-                ].map((pt, idx) => (
-                  <g key={idx} className="group/node">
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r="4.5"
-                      className="fill-white stroke-[#38BDF8] stroke-[2px] transition-all duration-200 hover:r-6.5 cursor-pointer"
-                    />
-                    <text
-                      x={pt.x}
-                      y={pt.y - 12}
-                      textAnchor="middle"
-                      className="text-[10px] font-mono fill-[#38BDF8] font-bold opacity-0 group-hover/node:opacity-100 transition-opacity pointer-events-none"
-                    >
-                      {pt.val}
-                    </text>
-                  </g>
-                ))}
-              </svg>
-            </div>
+      {/* Queue Task List Area */}
+      <div className="space-y-4">
+        {/* Filter Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 bg-brand-card rounded-2xl border border-slate-200/80 shadow-xs">
+          
+          {/* Channel Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+            {[
+              { id: "all", label: `All Tickets (${tasks.length})`, icon: Sparkles },
+              { id: "whatsapp", label: `WhatsApp (${waCount})`, icon: MessageCircle },
+              { id: "gmail", label: `Gmail (${gmCount})`, icon: Mail },
+              { id: "ecommerce", label: `E-Commerce (${ecCount})`, icon: ShoppingBag },
+              { id: "website", label: `Website (${wbCount})`, icon: Globe },
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = channelFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setChannelFilter(tab.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    isActive
+                      ? "bg-brand-primary text-white shadow-xs"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
-          <div className="flex justify-between px-1 text-[10px] font-mono font-bold text-slate-400 mt-2 pt-2 border-t border-slate-100/50">
-            <span>Mon (15k)</span>
-            <span>Tue (18k)</span>
-            <span>Wed (25k)</span>
-            <span>Thu (22k)</span>
-            <span>Fri (30k)</span>
-            <span>Sat (14k)</span>
-            <span>Sun (10k)</span>
+
+          {/* Search Box */}
+          <div className="relative w-full md:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search sender, topic, ID..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            />
           </div>
         </div>
 
-        {/* Graph 2: Case Severity Segment Distribution */}
-        <div className="bg-brand-card p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
-          <div>
-            <h3 className="font-display font-semibold text-base text-brand-secondary">SLA Severity Allocation</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Real-time proportions across corporate log indexes</p>
+        {/* Tickets Grid */}
+        {filteredTasks.length === 0 ? (
+          <div className="p-12 text-center bg-brand-card rounded-2xl border border-slate-200/80 space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+              <Clock className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-slate-800 text-base">No tickets matching filter</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              {channelFilter !== "all" ? `No tickets found under ${channelFilter}. Try switching to "All Tickets".` : "No tickets currently in the database."}
+            </p>
           </div>
+        ) : (
+          <div className="grid gap-4">
+            {filteredTasks.map(task => (
+              <div
+                key={task.id}
+                className="bg-brand-card rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4 hover:border-brand-primary/40 transition-all duration-200"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{task.id}</span>
+                      
+                      {task.source && (
+                        <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-md border flex items-center gap-1.5 ${
+                          (task.source || "").toLowerCase().includes("whatsapp") ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                          (task.source || "").toLowerCase().includes("gmail") ? "bg-red-50 text-red-700 border-red-200" :
+                          (task.source || "").toLowerCase().includes("commerce") ? "bg-purple-50 text-purple-700 border-purple-200" :
+                          "bg-blue-50 text-blue-700 border-blue-200"
+                        }`}>
+                          <span>{(task.source || "").toLowerCase().includes("whatsapp") ? "💬" : (task.source || "").toLowerCase().includes("gmail") ? "📧" : (task.source || "").toLowerCase().includes("commerce") ? "🛒" : "🌐"}</span>
+                          <span>{task.source}</span>
+                        </span>
+                      )}
 
-          <div className="space-y-3.5 my-4">
-            {severityDistribution.map((item, idx) => (
-              <div key={idx} className="space-y-1">
-                <div className="flex justify-between text-xs font-semibold text-slate-600">
-                  <span>{item.level}</span>
-                  <span className="font-mono text-brand-secondary font-bold">{item.pct}%</span>
+                      {task.category && (
+                        <span className="px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-slate-100 rounded-md">
+                          {task.category}
+                        </span>
+                      )}
+
+                      <h4 className="font-display font-bold text-base text-brand-secondary">{task.title}</h4>
+                    </div>
+
+                    <p className="text-sm text-slate-600 leading-relaxed pt-1">{task.desc}</p>
+                    
+                    <div className="flex flex-wrap items-center gap-4 pt-2 text-[11px] text-slate-500 border-t border-slate-100">
+                      {task.senderName && (
+                        <div>
+                          <span className="font-semibold text-slate-700">From: {task.senderName}</span>
+                          {task.senderEmail && <span className="text-slate-400 ml-1">({task.senderEmail})</span>}
+                        </div>
+                      )}
+                      {task.employeeName && (
+                        <div className="flex items-center gap-1 text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
+                          <span>Assigned Agent: <strong>{task.employeeName}</strong></span>
+                          {task.department && <span className="text-slate-400">({task.department})</span>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 flex-wrap items-center shrink-0">
+                    {getPriorityBadge(task.priority)}
+                    {getStatusBadge(task.status)}
+                  </div>
                 </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+
+                {/* Actions Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    {task.status === "Pending" && (
+                      <button
+                        onClick={() => handleAcceptTask(task.id)}
+                        className="px-4 py-2 bg-brand-primary hover:bg-brand-primary/90 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Accept Task
+                      </button>
+                    )}
+                    {task.status === "In Progress" && (
+                      <button
+                        onClick={() => handleResolveTask(task.id)}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" /> Mark Resolved
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleToggleNotes(task.id)}
+                      className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-semibold text-xs rounded-xl border border-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {task.notesOpen ? "Close Notes" : "Add/Edit Note"}
+                      <ChevronDown className={`w-3 h-3 transition-transform ${task.notesOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    <button
+                      onClick={() => handleGenerateDraft(task)}
+                      disabled={draftLoading[task.id]}
+                      className="px-3.5 py-2 bg-brand-primary-soft hover:bg-brand-primary/20 text-brand-primary font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Generate AI reply for customer"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${draftLoading[task.id] ? "animate-spin" : ""}`} />
+                      <span>{draftLoading[task.id] ? "Drafting..." : "AI Draft Reply"}</span>
+                    </button>
+                  </div>
+
+                  {task.notes && (
+                    <span className="text-xs font-mono text-slate-400 max-w-xs truncate">
+                      Latest: "{task.notes}"
+                    </span>
+                  )}
+                </div>
+
+                {/* Expanded Notes Section */}
+                {task.notesOpen && (
                   <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${item.pct}%` }}
-                    transition={{ duration: 0.9, delay: idx * 0.15 }}
-                    className={`h-full bg-gradient-to-r ${item.color} rounded-full`}
-                  />
-                </div>
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="pt-3 border-t border-dashed border-slate-200 space-y-3"
+                  >
+                    {drafts[task.id] && (
+                      <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-xl space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-brand-primary" />
+                            AI Suggested Reply for {task.source || "Customer"}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyDraft(drafts[task.id], task.id)}
+                              className="px-2.5 py-1 bg-white border border-indigo-300 rounded-lg text-[11px] font-bold text-indigo-700 hover:bg-indigo-50 transition cursor-pointer"
+                            >
+                              {copiedDraftId === task.id ? "✓ Copied!" : "Copy Text"}
+                            </button>
+
+                            {(task.source || "").toLowerCase().includes("whatsapp") && (
+                              <button
+                                type="button"
+                                onClick={() => handleSendOutboundWhatsApp(task, drafts[task.id])}
+                                disabled={sendingId === task.id}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                {sendingId === task.id ? (
+                                  <span>Sending...</span>
+                                ) : sentSuccessId === task.id ? (
+                                  <span>✓ Dispatched!</span>
+                                ) : (
+                                  <>
+                                    <MessageCircle className="w-3 h-3" />
+                                    <span>Send via WhatsApp</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-slate-700 italic leading-relaxed whitespace-pre-wrap">
+                          "{drafts[task.id]}"
+                        </p>
+                      </div>
+                    )}
+
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Internal Diagnostic &amp; Resolution Note</label>
+                    <textarea
+                      placeholder="Type diagnostic findings, customer response, or system resolution logs..."
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-brand-primary focus:bg-white outline-none min-h-[75px]"
+                      value={activeNotes[task.id] !== undefined ? activeNotes[task.id] : (task.notes || "")}
+                      onChange={e => setActiveNotes({ ...activeNotes, [task.id]: e.target.value })}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => handleSaveNotes(task.id, activeNotes[task.id] !== undefined ? activeNotes[task.id] : (task.notes || ""))}
+                        className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Save className="w-3 h-3" /> Save Note
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
               </div>
             ))}
           </div>
-
-          <p className="text-[10px] text-slate-400 leading-normal font-medium">
-            Risk engines constantly recalculate segment shares based on real-time escalation.
-          </p>
-        </div>
-      </div>
-
-      {/* Departments Table / Detail Block */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-brand-card p-6 rounded-2xl border border-slate-100 shadow-sm lg:col-span-2">
-          <h3 className="font-display font-semibold text-base text-brand-secondary mb-4">Department Operational Health</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="py-3 text-xs font-semibold uppercase text-slate-400 tracking-wider">Department Unit</th>
-                  <th className="py-3 text-xs font-semibold uppercase text-slate-400 tracking-wider text-right">Resolution Pace (SLA)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {departments.map((d, i) => {
-                  const barGradients = [
-                    "from-[#312E81] to-[#4F46E5]",
-                    "from-[#4F46E5] to-[#06B6D4]",
-                    "from-[#06B6D4] to-[#14B8A6]",
-                    "from-[#1E1B4B] via-[#4F46E5] to-[#06B6D4]",
-                    "from-[#4F46E5] via-[#06B6D4] to-[#14B8A6]"
-                  ];
-                  const gradientClass = barGradients[i % barGradients.length];
-                  return (
-                    <tr key={i} className="hover:bg-slate-50/50 transition">
-                      <td className="py-4 text-sm font-semibold text-slate-700">{d.name}</td>
-                      <td className="py-4 text-right">
-                        <div className="inline-flex items-center gap-3 w-full max-w-[200px] justify-end">
-                          <div className="h-2 w-24 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                            <div className={`h-full bg-gradient-to-r ${gradientClass} rounded-full`} style={{ width: `${d.pct}%` }} />
-                          </div>
-                          <span className="text-xs font-mono font-bold text-brand-secondary">{d.pct}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Business Predictive Cards */}
-        <div className="bg-gradient-to-br from-indigo-50/20 via-sky-50/10 to-white p-6 rounded-2xl border border-brand-primary/15 shadow-md flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 border-b border-indigo-100/50 pb-2">
-              <div className="p-1 bg-brand-primary-soft text-brand-primary rounded-lg">
-                <Sparkles className="w-4 h-4 animate-pulse" />
-              </div>
-              <h3 className="font-display font-bold text-base text-brand-secondary">Strategic AI Insights</h3>
-            </div>
-            <div className="space-y-3">
-              <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200/60 text-xs shadow-xs text-slate-800">
-                <strong className="text-amber-700 uppercase tracking-wide block mb-1 font-bold">Logistics Overload</strong>
-                Delivery complaints rose by <strong className="text-amber-900 font-bold">30%</strong> in metropolitan sorting facilities due to routing bottleneck anomalies.
-              </div>
-              <div className="p-3.5 bg-red-50 rounded-xl border border-red-200/60 text-xs shadow-xs text-slate-800">
-                <strong className="text-red-700 uppercase tracking-wide block mb-1 font-bold">Billing Escalation</strong>
-                Transaction failures are currently the highest priority risk vector. Payments ledger audit recommended.
-              </div>
-            </div>
-          </div>
-          <p className="text-[11px] text-slate-600 mt-4 leading-normal bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            🔮 <strong className="text-slate-800">Predictive projection:</strong> Anticipating an increase in refund-related logs next quarter unless gateway timeouts are mitigated.
-          </p>
-        </div>
-      </div>
-
-      {/* Critical alerts table */}
-      <div className="bg-brand-card p-6 rounded-2xl border border-slate-100 shadow-sm">
-        <h3 className="font-display font-semibold text-base text-brand-secondary mb-4">Critical Issue Incidents Tracker</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 text-xs text-slate-400 font-semibold uppercase tracking-wider">
-                <th className="py-3">Critical Incident Target</th>
-                <th className="py-3">Clustering Type</th>
-                <th className="py-3">Linked Signals</th>
-                <th className="py-3">Severity</th>
-                <th className="py-3 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 text-sm font-medium">
-              {incidents.map((row, i) => (
-                <tr key={i} className="hover:bg-slate-50/50 transition">
-                  <td className="py-4 text-slate-700 font-semibold">{row.issue}</td>
-                  <td className="py-4 text-slate-500 text-xs">{row.cat}</td>
-                  <td className="py-4 font-mono text-brand-secondary font-bold">{row.reports.toLocaleString()}</td>
-                  <td className="py-4">
-                    {row.sev === "Critical" ? (
-                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-red-50 text-red-500 border border-red-100">Critical</span>
-                    ) : row.sev === "High" ? (
-                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-amber-50 text-brand-warning border border-amber-100">High</span>
-                    ) : (
-                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-slate-50 text-slate-500 border border-slate-100">Medium</span>
-                    )}
-                  </td>
-                  <td className="py-4 text-right">
-                    {row.status === "Resolved" ? (
-                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-emerald-50 text-brand-success border border-emerald-100">Resolved</span>
-                    ) : row.status === "In Progress" ? (
-                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-brand-primary-soft text-brand-primary border border-brand-primary/20">In Progress</span>
-                    ) : (
-                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-slate-100 text-slate-400 border border-slate-200">Pending</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        )}
       </div>
     </motion.div>
   );

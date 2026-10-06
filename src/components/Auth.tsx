@@ -10,8 +10,8 @@ interface AuthProps {
 
 export default function Auth({ onLoginSuccess }: AuthProps) {
   const [authView, setAuthView] = useState<"login" | "signup" | "forgot">("login");
-  const [loginRole, setLoginRole] = useState<UserRole>("employee");
-  const [signupRole, setSignupRole] = useState<UserRole>("employee");
+  const loginRole: UserRole = "employee";
+  const signupRole: UserRole = "employee";
 
   // Form Fields
   const [loginEmail, setLoginEmail] = useState("keya@northwind.com");
@@ -24,19 +24,22 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
 
   const [forgotEmail, setForgotEmail] = useState("");
 
-  // Error Fields
+  // Error & Info Fields
   const [errorText, setErrorText] = useState("");
+  const [infoText, setInfoText] = useState("");
 
-  // Quick switch role-prefills for easier evaluation
-  const handleRoleChange = (role: UserRole) => {
-    setLoginRole(role);
-    if (role === "employee") {
-      setLoginEmail("keya@northwind.com");
-      setLoginPassword("resolveai123");
-    } else {
-      setLoginEmail("keyasuthar@northwind.com");
-      setLoginPassword("resolveai123");
-    }
+  const handleQuickDemoEnter = () => {
+    setErrorText("");
+    const demoUser: User = {
+      name: "Keya",
+      email: "keya@northwind.com",
+      role: "employee",
+      dept: "Finance / Refunds",
+    };
+    try {
+      localStorage.setItem("resolveai_user", JSON.stringify(demoUser));
+    } catch (e) {}
+    onLoginSuccess(demoUser);
   };
 
   const handleLoginSubmit = async (e: FormEvent) => {
@@ -72,7 +75,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
     } catch (err) {
       console.warn("Backend auth unavailable, falling back to local session:", err);
       let name = loginEmail.split("@")[0].replace(/[\._]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-      let dept = loginRole === "authority" ? "Executive Leadership Board" : "Finance Department";
+      let dept = "Finance Department";
       if (loginEmail === "keya@northwind.com") {
         name = "Keya";
         dept = "Finance Department";
@@ -131,7 +134,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
         name: signupName,
         email: signupEmail,
         role: signupRole,
-        dept: signupRole === "authority" ? "Corporate Management" : "General Support Department"
+        dept: "General Support Department",
       };
       onLoginSuccess(newUser);
     }
@@ -140,7 +143,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
   const handleForgotSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!forgotEmail) return;
-    alert(`A password reset link was dispatched to your company inbox at ${forgotEmail}.`);
+    setInfoText(`A password reset link was dispatched to your inbox at ${forgotEmail}.`);
     setAuthView("login");
   };
 
@@ -222,46 +225,33 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
                   <p className="text-xs text-slate-400 mt-1">Sign in to your corporate feedback dashboard</p>
                 </div>
 
+                {/* 1-Click Instant Demo Login */}
+                <div className="p-3 bg-teal-50/60 border border-teal-200/80 rounded-2xl space-y-2">
+                  <div className="text-[11px] font-bold text-teal-900 flex items-center justify-between">
+                    <span>⚡ Quick 1-Click Access</span>
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleQuickDemoEnter}
+                      className="w-full py-2 bg-brand-primary hover:bg-brand-primary/90 text-white text-xs font-bold rounded-xl shadow-xs transition text-center cursor-pointer"
+                    >
+                      Instant Sign In (Demo Account)
+                    </button>
+                  </div>
+                </div>
+
+                {infoText && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs rounded-xl font-medium">
+                    {infoText}
+                  </div>
+                )}
+
                 {errorText && (
                   <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-xs rounded-xl font-medium">
                     {errorText}
                   </div>
                 )}
-
-                {/* Role Toggle Selector */}
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleRoleChange("employee")}
-                    className={`p-3 rounded-xl border text-left transition flex flex-col justify-between h-20 cursor-pointer ${
-                      loginRole === "employee"
-                        ? "border-brand-primary bg-teal-50/40 text-brand-primary shadow-sm"
-                        : "border-slate-150 bg-slate-50 text-slate-400 hover:border-slate-300"
-                    }`}
-                  >
-                    <UserPlus className="w-4 h-4 shrink-0" />
-                    <div>
-                      <strong className="text-xs font-bold block leading-tight text-brand-secondary">Employee</strong>
-                      <span className="text-[10px] text-slate-400 font-medium">Support &amp; Desk Unit</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRoleChange("authority")}
-                    className={`p-3 rounded-xl border text-left transition flex flex-col justify-between h-20 cursor-pointer ${
-                      loginRole === "authority"
-                        ? "border-brand-primary bg-teal-50/40 text-brand-primary shadow-sm"
-                        : "border-slate-150 bg-slate-50 text-slate-400 hover:border-slate-300"
-                    }`}
-                  >
-                    <Shield className="w-4 h-4 shrink-0" />
-                    <div>
-                      <strong className="text-xs font-bold block leading-tight text-brand-secondary">Administrator</strong>
-                      <span className="text-[10px] text-slate-400 font-medium">SLA Operations Board</span>
-                    </div>
-                  </button>
-                </div>
 
                 <div className="space-y-4">
                   {/* Email */}
@@ -273,7 +263,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
                     <input
                       required
                       type="email"
-                      placeholder={loginRole === "authority" ? "authority@northwind.com" : "employee@northwind.com"}
+                      placeholder="employee@northwind.com"
                       className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl p-3 focus:border-brand-primary focus:bg-white outline-none"
                       value={loginEmail}
                       onChange={e => setLoginEmail(e.target.value)}
@@ -339,39 +329,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
                   </div>
                 )}
 
-                {/* Role Toggle Selector */}
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSignupRole("employee")}
-                    className={`p-2 rounded-xl border text-left transition flex flex-col justify-between h-16 cursor-pointer ${
-                      signupRole === "employee"
-                        ? "border-brand-primary bg-teal-50/40 text-brand-primary shadow-sm"
-                        : "border-slate-150 bg-slate-50 text-slate-400 hover:border-slate-300"
-                    }`}
-                  >
-                    <div>
-                      <strong className="text-xs font-bold block text-brand-secondary">Employee role</strong>
-                      <span className="text-[9px] text-slate-400 font-medium">Support Unit Access</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSignupRole("authority")}
-                    className={`p-2 rounded-xl border text-left transition flex flex-col justify-between h-16 cursor-pointer ${
-                      signupRole === "authority"
-                        ? "border-brand-primary bg-teal-50/40 text-brand-primary shadow-sm"
-                        : "border-slate-150 bg-slate-50 text-slate-400 hover:border-slate-300"
-                    }`}
-                  >
-                    <div>
-                      <strong className="text-xs font-bold block text-brand-secondary">Administrator role</strong>
-                      <span className="text-[9px] text-slate-400 font-medium">Operations Access</span>
-                    </div>
-                  </button>
-                </div>
-
+                {/* Role is default Employee */}
                 <div className="space-y-3">
                   {/* Name */}
                   <div className="space-y-1">

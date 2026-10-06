@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, BarChart2, Folder, MessageSquare, Info, Mail, Menu, X } from "lucide-react";
+import { Sparkles, BarChart2, Folder, MessageSquare, Info, Mail, Menu, X, Share2, ShoppingBag } from "lucide-react";
 import { User, Task } from "./types";
 import Auth from "./components/Auth";
 import Sidebar from "./components/Sidebar";
@@ -9,6 +9,8 @@ import Categories from "./components/Categories";
 import AboutContact from "./components/AboutContact";
 import ChatbotHub from "./components/ChatbotHub";
 import ChatWidget from "./components/ChatWidget";
+import Integrations from "./components/Integrations";
+import MockStorefront from "./components/MockStorefront";
 import Logo from "./components/Logo";
 
 const initialTasks: Task[] = [
@@ -20,33 +22,75 @@ const initialTasks: Task[] = [
   { id: "#4526", title: "Review support feedback batch", desc: "5 low-rating survey responses need a personal follow-up call.", priority: "Low", status: "Pending", notes: "" }
 ];
 
+const defaultDemoUser: User = {
+  name: "Keya",
+  email: "keya@northwind.com",
+  role: "employee",
+  dept: "Finance / Refunds",
+};
+
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem("resolveai_user");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...parsed, role: "employee" };
+      }
+    } catch (e) {}
+    return defaultDemoUser;
+  });
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [activeTab, setActiveTab] = useState<"overview" | "dashboard" | "categories" | "chatbot" | "about" | "contact">("dashboard");
+  const [activeTab, setActiveTab] = useState<"overview" | "dashboard" | "integrations" | "storefront" | "categories" | "chatbot" | "about" | "contact">("dashboard");
   const [profileSidebarOpen, setProfileSidebarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
+  const fetchTasks = async () => {
     if (!user) return;
-    const fetchTasks = async () => {
-      try {
-        const res = await fetch(`/api/tasks?email=${encodeURIComponent(user.email)}&role=${user.role}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.tasks) && data.tasks.length > 0) {
-            setTasks(data.tasks);
-          }
+    try {
+      const res = await fetch(`/api/tasks`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.tasks)) {
+          setTasks(data.tasks);
         }
-      } catch (err) {
-        console.warn("Could not fetch tasks from backend, using fallback:", err);
       }
-    };
+    } catch (err) {
+      console.warn("Could not fetch tasks from backend, using fallback:", err);
+    }
+  };
+
+  useEffect(() => {
     fetchTasks();
+    const interval = setInterval(fetchTasks, 4000);
+
+    // Boot background Twilio auto-sync if credentials are saved
+    try {
+      const savedTwilio = localStorage.getItem("resolveai_twilio_config");
+      if (savedTwilio) {
+        const parsed = JSON.parse(savedTwilio);
+        if (parsed.accountSid && parsed.authToken && parsed.autoSyncEnabled !== false) {
+          fetch("/api/whatsapp/auto-sync/configure", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              accountSid: parsed.accountSid,
+              authToken: parsed.authToken,
+              autoSyncEnabled: true,
+            }),
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {}
+
+    return () => clearInterval(interval);
   }, [user]);
 
   const handleLoginSuccess = (signedInUser: User) => {
     setUser(signedInUser);
+    try {
+      localStorage.setItem("resolveai_user", JSON.stringify(signedInUser));
+    } catch (e) {}
     setActiveTab("dashboard");
   };
 
@@ -55,6 +99,7 @@ export default function App() {
     setProfileSidebarOpen(false);
     setMobileMenuOpen(false);
     localStorage.removeItem("resolveai_token");
+    localStorage.removeItem("resolveai_user");
   };
 
   if (!user) {
@@ -78,7 +123,9 @@ export default function App() {
           <nav className="hidden md:flex items-center gap-1.5">
             {[
               { id: "overview", label: "Overview", icon: BarChart2 },
-              { id: "dashboard", label: user.role === "authority" ? "SLA Dashboard" : "My Queue", icon: Sparkles },
+              { id: "dashboard", label: "My Queue", icon: Sparkles },
+              { id: "storefront", label: "Mock Storefront", icon: ShoppingBag },
+              { id: "integrations", label: "Connected Apps", icon: Share2 },
               { id: "categories", label: "Categories", icon: Folder },
               { id: "chatbot", label: "AI Chatbot", icon: MessageSquare },
               { id: "about", label: "About Us", icon: Info },
@@ -86,18 +133,21 @@ export default function App() {
             ].map(tab => {
               const IconComp = tab.icon;
               const isActive = activeTab === tab.id;
+              const isStorefront = tab.id === "storefront";
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition cursor-pointer ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition cursor-pointer ${
                     isActive
-                      ? "bg-brand-primary/15 text-brand-primary border border-brand-primary/25"
+                      ? "bg-brand-primary/15 text-brand-primary border border-brand-primary/25 font-bold"
+                      : isStorefront
+                      ? "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200"
                       : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 border border-transparent"
                   }`}
                 >
                   <IconComp className="w-3.5 h-3.5" />
-                  {tab.label}
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
@@ -129,7 +179,9 @@ export default function App() {
           <div className="md:hidden border-t border-slate-200 bg-white/95 px-4 py-3 space-y-1.5 shadow-xl">
             {[
               { id: "overview", label: "Overview", icon: BarChart2 },
-              { id: "dashboard", label: user.role === "authority" ? "SLA Dashboard" : "My Queue", icon: Sparkles },
+              { id: "dashboard", label: "My Queue", icon: Sparkles },
+              { id: "storefront", label: "Mock Storefront", icon: ShoppingBag },
+              { id: "integrations", label: "Connected Apps", icon: Share2 },
               { id: "categories", label: "Categories", icon: Folder },
               { id: "chatbot", label: "AI Chatbot", icon: MessageSquare },
               { id: "about", label: "About Us", icon: Info },
@@ -163,6 +215,8 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === "overview" && <Overview tasks={tasks} />}
         {activeTab === "dashboard" && <Dashboard user={user} tasks={tasks} setTasks={setTasks} />}
+        {activeTab === "storefront" && <MockStorefront onNavigateToQueue={() => setActiveTab("dashboard")} onRefreshTasks={fetchTasks} />}
+        {activeTab === "integrations" && <Integrations onRefreshTasks={fetchTasks} onNavigateToDashboard={() => setActiveTab("dashboard")} />}
         {activeTab === "categories" && <Categories />}
         {activeTab === "chatbot" && <ChatbotHub user={user} />}
         {activeTab === "about" && <AboutContact initialView="about" />}

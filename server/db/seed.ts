@@ -166,7 +166,6 @@ export async function seedDatabase() {
     if (parseInt(checkCount.rows[0].count, 10) > 0) {
       console.log(`Database already has ${checkCount.rows[0].count} complaints. Skipping synthetic insert.`);
       await client.query("COMMIT");
-      client.release();
       return true;
     }
 

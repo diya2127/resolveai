@@ -69,4 +69,33 @@ router.get("/status", async (req: Request, res: Response) => {
   });
 });
 
+// POST /api/ecommerce/webhook - Standard Shopify / WooCommerce Webhook receiver
+router.post("/webhook", async (req: Request, res: Response) => {
+  try {
+    const body = req.body || {};
+    const customer = body.customer || {};
+    const senderName = `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || body.billing?.first_name || body.name || "E-Commerce Customer";
+    const senderEmail = customer.email || body.email || body.billing?.email || null;
+    const lineItem = body.line_items?.[0] || {};
+    const product = lineItem.title || body.product_name || body.product || "Store Product";
+    const note = body.note || body.cancel_reason || body.reason || body.review_text || body.message || `Customer dispute / refund requested for order #${body.order_number || body.id || 'N/A'}`;
+
+    const result = await processIncomingMessage({
+      source: "E-Commerce",
+      externalMessageId: body.id ? `shop-${body.id}` : `ecomm-${Date.now()}`,
+      senderName,
+      senderEmail,
+      subject: `E-Commerce Feedback: ${product}`,
+      message: note,
+      rating: body.rating ? Number(body.rating) : 1,
+      product,
+      rawData: body,
+    });
+
+    return res.status(200).json({ success: true, message: "E-commerce event ingested.", result });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || "Failed to process e-commerce webhook." });
+  }
+});
+
 export default router;

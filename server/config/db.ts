@@ -8,11 +8,22 @@ dotenv.config();
 const { Pool } = pg;
 
 // Construct configuration from DATABASE_URL or discrete variables
-const connectionString = process.env.DATABASE_URL;
+let connectionString = process.env.DATABASE_URL;
+if (connectionString && connectionString.includes("ResolveAI@6352024915")) {
+  connectionString = connectionString.replace("ResolveAI@6352024915", "ResolveAI%406352024915");
+}
+
+const isRemote = Boolean(connectionString && !connectionString.includes("localhost") && !connectionString.includes("127.0.0.1"));
 
 export const pool = new Pool(
   connectionString
-    ? { connectionString }
+    ? { 
+        connectionString,
+        ssl: isRemote ? { rejectUnauthorized: false } : undefined,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
+      }
     : {
         host: process.env.PGHOST || "localhost",
         port: parseInt(process.env.PGPORT || "5432", 10),

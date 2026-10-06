@@ -200,4 +200,20 @@ router.patch("/:id/status", async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/complaints/draft-reply - Generate 1-click tailored AI reply for agent to send
+router.post("/draft-reply", async (req: Request, res: Response) => {
+  try {
+    const { customerName, message, channel } = req.body;
+    const { generateResolutionDraft } = await import("../services/geminiService");
+    const draft = await generateResolutionDraft(
+      customerName || "Customer",
+      message || "Support inquiry",
+      channel || "WhatsApp"
+    );
+    return res.json({ success: true, draft });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || "Failed to generate draft." });
+  }
+});
+
 export default router;
