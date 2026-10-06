@@ -3,6 +3,7 @@ import { analyzeComplaint, ComplaintAnalysisResult } from "./geminiService";
 import { detectRepeatedIssue } from "./repeatedIssueService";
 import { assignEmployeeForComplaint } from "./taskAssignmentService";
 import { addMemoryEntry } from "./memoryStore";
+import { broadcastRealtimeUpdate } from "./realtimeService";
 
 export interface IncomingComplaintPayload {
   source: "Website" | "Gmail" | "WhatsApp" | "E-Commerce" | "Manual" | string;
@@ -58,6 +59,7 @@ export async function processIncomingMessage(payload: IncomingComplaintPayload):
       analysis: quickAnalysis,
       assignedEmployeeName: "Keya",
     });
+    broadcastRealtimeUpdate({ type: "NEW_TICKET", complaintId, taskId, source: normalizedSource });
     return {
       success: true,
       messageId,
@@ -291,6 +293,7 @@ export async function processIncomingMessage(payload: IncomingComplaintPayload):
     }
 
     await client.query("COMMIT");
+    broadcastRealtimeUpdate({ type: "NEW_TICKET", complaintId, taskId, source: normalizedSource });
 
     console.log(`[Ingestion Complete] Message #${messageId} processed in ${Date.now() - startTime}ms -> Complaint #${complaintId || 'none'}, Task #${taskId || 'none'}`);
 
