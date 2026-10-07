@@ -24,7 +24,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { User as FirebaseUser } from "firebase/auth";
-import { googleSignIn, logoutGoogle, initAuth } from "../services/googleAuth";
+import { googleSignIn, logoutGoogle, initAuth, setManualAccessToken } from "../services/googleAuth";
 import {
   fetchRecentGmailMessages,
   ingestGmailEmailToResolveAI,
@@ -44,19 +44,14 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
   const [googleUser, setGoogleUser] = useState<FirebaseUser | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleAuthError, setGoogleAuthError] = useState<string | null>(null);
+  const [manualTokenInput, setManualTokenInput] = useState("");
+  const [showManualConnect, setShowManualConnect] = useState(false);
   const [realEmails, setRealEmails] = useState<GmailMessageItem[]>([]);
   const [fetchingEmails, setFetchingEmails] = useState(false);
   const [ingestingId, setIngestingId] = useState<string | null>(null);
   const [ingestedMap, setIngestedMap] = useState<Record<string, boolean>>({});
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [gmailAutoSync, setGmailAutoSync] = useState<boolean>(true);
-
-  // WhatsApp Simulator State
-  const [waPhone, setWaPhone] = useState("+91 98201 12345");
-  const [waName, setWaName] = useState("Aarav Malhotra");
-  const [waMessage, setWaMessage] = useState("Package arrived completely broken with cracked plastic. Need an urgent replacement or full refund!");
-  const [waLoading, setWaLoading] = useState(false);
-  const [waResult, setWaResult] = useState<any>(null);
 
   // Twilio Direct Sync State
   const [twilioSid, setTwilioSid] = useState("");
@@ -84,21 +79,6 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
       })
       .catch(() => {});
   }, []);
-
-  // Gmail Simulator State
-  const [gmailSender, setGmailSender] = useState("neha.kapoor@example.com");
-  const [gmailSubject, setGmailSubject] = useState("Double charged on credit card for Order #ORD-10842");
-  const [gmailBody, setGmailBody] = useState("I checked my ICICI bank statement today and noticed ₹4,299 was deducted twice for the same transaction. Please reverse the duplicate authorization immediately.");
-  const [gmailLoading, setGmailLoading] = useState(false);
-  const [gmailResult, setGmailResult] = useState<any>(null);
-
-  // E-Commerce Simulator State
-  const [ecommProduct, setEcommProduct] = useState("Sony WH-1000XM5 Wireless Headphones");
-  const [ecommRating, setEcommRating] = useState(1);
-  const [ecommCustomer, setEcommCustomer] = useState("Rohan Deshmukh");
-  const [ecommReview, setEcommReview] = useState("Left ear cup stopped working within 48 hours of delivery. Seller is not responding to warranty replacement request.");
-  const [ecommLoading, setEcommLoading] = useState(false);
-  const [ecommResult, setEcommResult] = useState<any>(null);
 
   // Live Stream from Supabase
   const [recentSignals, setRecentSignals] = useState<any[]>([]);
@@ -165,10 +145,31 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
       }
     } catch (err: any) {
       console.error("Google sign in failed:", err);
-      setGoogleAuthError(err.message || "Failed to sign in with Google.");
+      const isUnauthorizedDomain =
+        err.code === "auth/unauthorized-domain" ||
+        (err.message && err.message.toLowerCase().includes("unauthorized-domain")) ||
+        (err.message && err.message.toLowerCase().includes("not authorized"));
+
+      if (isUnauthorizedDomain) {
+        setGoogleAuthError("unauthorized-domain");
+      } else {
+        setGoogleAuthError(err.message || "Failed to sign in with Google.");
+      }
     } finally {
       setGoogleLoading(false);
     }
+  };
+
+  const handleManualTokenSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!manualTokenInput.trim()) return;
+    setManualAccessToken(manualTokenInput.trim(), "workspace.support@gmail.com");
+    setGoogleUser({ email: "workspace.support@gmail.com", displayName: "Workspace Support" } as any);
+    setGoogleAuthError(null);
+    setShowManualConnect(false);
+    setTimeout(() => {
+      loadRealGmailEmails();
+    }, 100);
   };
 
   // Google Sign-Out Handler
@@ -268,44 +269,6 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
     return () => clearInterval(interval);
   }, [googleUser, gmailAutoSync, ingestedMap, onRefreshTasks]);
 
-  // 1. Submit WhatsApp Simulation
-  const handleSendWhatsApp = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!waMessage.trim()) return;
-
-    setWaLoading(true);
-    setWaResult(null);
-
-    try {
-      const res = await fetch("/api/whatsapp/webhook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          senderName: waName,
-          senderPhone: waPhone,
-          subject: `WhatsApp Support: ${waMessage.substring(0, 40)}...`,
-          message: waMessage,
-        }),
-      });
-
-      const data = await res.json();
-      setWaResult({
-        success: res.ok,
-        message: res.ok ? "WhatsApp message received, analyzed by AI, and ticket created!" : (data.error || "Failed"),
-        details: data.result,
-      });
-
-      if (res.ok) {
-        fetchRecentSignals();
-        if (onRefreshTasks) onRefreshTasks();
-      }
-    } catch (err: any) {
-      setWaResult({ success: false, message: err.message || "Network error" });
-    } finally {
-      setWaLoading(false);
-    }
-  };
-
   // Direct Twilio Inbound Cloud Sync
   const handleSyncTwilio = async (e: FormEvent) => {
     e.preventDefault();
@@ -371,103 +334,6 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
         autoSyncActive: newState,
       }));
     } catch (e) {}
-  };
-
-  // 2. Submit Gmail Simulation
-  const handleSendGmail = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!gmailBody.trim()) return;
-
-    setGmailLoading(true);
-    setGmailResult(null);
-
-    try {
-      const res = await fetch("/api/gmail/webhook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: gmailSender,
-          subject: gmailSubject,
-          body: gmailBody,
-        }),
-      });
-
-      const data = await res.json();
-      setGmailResult({
-        success: res.ok,
-        message: res.ok ? "Support email parsed, categorized, and added to queue!" : (data.error || "Failed"),
-        details: data.result,
-      });
-
-      if (res.ok) {
-        fetchRecentSignals();
-        if (onRefreshTasks) onRefreshTasks();
-      }
-    } catch (err: any) {
-      setGmailResult({ success: false, message: err.message || "Network error" });
-    } finally {
-      setGmailLoading(false);
-    }
-  };
-
-  // 3. Submit E-Commerce Simulation
-  const handleSendECommerce = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!ecommReview.trim()) return;
-
-    setEcommLoading(true);
-    setEcommResult(null);
-
-    try {
-      const res = await fetch("/api/complaints/incoming", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source: "E-Commerce",
-          senderName: ecommCustomer,
-          senderEmail: `${ecommCustomer.toLowerCase().replace(/\s+/g, ".")}@example.com`,
-          product: ecommProduct,
-          rating: ecommRating,
-          subject: `1-Star Customer Review for ${ecommProduct}`,
-          message: ecommReview,
-        }),
-      });
-
-      const data = await res.json();
-      setEcommResult({
-        success: res.ok,
-        message: res.ok ? "E-Commerce negative review converted into actionable complaint!" : (data.error || "Failed"),
-        details: data.data,
-      });
-
-      if (res.ok) {
-        fetchRecentSignals();
-        if (onRefreshTasks) onRefreshTasks();
-      }
-    } catch (err: any) {
-      setEcommResult({ success: false, message: err.message || "Network error" });
-    } finally {
-      setEcommLoading(false);
-    }
-  };
-
-  // 4. Batch Sync E-Commerce
-  const handleSyncECommerceBatch = async () => {
-    setEcommLoading(true);
-    try {
-      const res = await fetch("/api/ecommerce/sync", { method: "POST" });
-      const data = await res.json();
-      setEcommResult({
-        success: res.ok,
-        message: data.message || "Batch reviews synced successfully!",
-      });
-      fetchRecentSignals();
-      if (onRefreshTasks) onRefreshTasks();
-    } catch (e: any) {
-      setEcommResult({ success: false, message: e.message || "Batch sync failed" });
-    } finally {
-      setEcommLoading(false);
-    }
   };
 
   const getSourceIcon = (src?: string) => {
@@ -594,8 +460,27 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
               </button>
             )}
             {googleAuthError && (
-              <div className="mt-2 text-[11px] text-red-600 bg-red-50 p-2 rounded-lg">
-                {googleAuthError}
+              <div className="mt-2 text-[11px] text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200">
+                {googleAuthError === "unauthorized-domain" ? (
+                  <div className="space-y-1">
+                    <div className="font-bold flex items-center gap-1.5 text-red-700">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Domain Not Authorized</span>
+                    </div>
+                    <p className="text-[10px] text-slate-600 leading-tight">
+                      Add <strong>{window.location.hostname}</strong> in Firebase Console Authorized Domains.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveChannel("gmail")}
+                      className="text-[10px] text-red-700 font-bold underline cursor-pointer"
+                    >
+                      View 1-Click Fix →
+                    </button>
+                  </div>
+                ) : (
+                  googleAuthError
+                )}
               </div>
             )}
           </div>
@@ -811,82 +696,92 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
                       )}
                     </div>
                   ) : (
-                    <div className="text-center py-6 space-y-3">
-                      <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                        Sign in with your Google account to let ResolveAI automatically read customer emails from your inbox with your permission.
-                      </p>
-                      <button
-                        onClick={handleGoogleConnect}
-                        disabled={googleLoading}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-xl text-xs font-bold shadow-sm transition cursor-pointer"
-                      >
-                        <Mail className="w-4 h-4 text-red-600" />
-                        <span>Connect Google Inbox Now</span>
-                      </button>
+                    <div className="py-6 space-y-5">
+                      {googleAuthError === "unauthorized-domain" && (
+                        <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl space-y-3 text-xs text-amber-950 text-left">
+                          <div className="flex items-center gap-2 font-bold text-amber-900 text-sm">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>Action Required: Authorize "{window.location.hostname}" in Firebase</span>
+                          </div>
+                          <p className="leading-relaxed text-slate-700">
+                            Firebase Authentication requires your current hostname (<strong>{window.location.hostname}</strong>) to be on the Authorized Domains list before Google popup sign-in is allowed.
+                          </p>
+                          <div className="space-y-1.5 text-slate-700 font-medium pl-1 text-[11px]">
+                            <div>1. Open <a href="https://console.firebase.google.com/project/gen-lang-client-0327627332/authentication/settings" target="_blank" rel="noreferrer" className="text-amber-800 underline font-bold inline-flex items-center gap-1 hover:text-amber-950">Firebase Authorized Domains <ExternalLink className="w-3 h-3" /></a></div>
+                            <div>2. Under <strong>Authorized domains</strong>, click <strong>Add domain</strong>.</div>
+                            <div>3. Paste <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{window.location.hostname}</code> and click <strong>Save</strong>.</div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 pt-2">
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(window.location.hostname, "domain_btn")}
+                              className="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 rounded-xl font-bold text-amber-900 transition text-xs cursor-pointer shadow-xs"
+                            >
+                              {copiedUrl === "domain_btn" ? "✓ Copied Domain" : `Copy "${window.location.hostname}"`}
+                            </button>
+                            <a
+                              href="https://console.firebase.google.com/project/gen-lang-client-0327627332/authentication/settings"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition shadow-xs text-xs inline-flex items-center gap-1.5"
+                            >
+                              <span>Open Firebase Settings</span>
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="text-center space-y-3">
+                        <p className="text-xs text-slate-600 max-w-sm mx-auto">
+                          Sign in with your Google account to let ResolveAI automatically read customer emails from your inbox with your permission.
+                        </p>
+                        <button
+                          onClick={handleGoogleConnect}
+                          disabled={googleLoading}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-xl text-xs font-bold shadow-sm transition cursor-pointer"
+                        >
+                          <Mail className="w-4 h-4 text-red-600" />
+                          <span>{googleLoading ? "Opening Sign-In..." : "Connect Google Inbox Now"}</span>
+                        </button>
+                      </div>
+
+                      {/* Manual Token Connect Fallback */}
+                      <div className="border-t border-slate-200/80 pt-4 text-left">
+                        <button
+                          type="button"
+                          onClick={() => setShowManualConnect(!showManualConnect)}
+                          className="text-xs text-slate-500 hover:text-slate-800 font-semibold flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>{showManualConnect ? "▼ Hide Direct Token Connect" : "▶ Alternative: Connect Directly with Google Access Token"}</span>
+                        </button>
+
+                        {showManualConnect && (
+                          <form onSubmit={handleManualTokenSubmit} className="mt-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                            <div className="text-xs font-bold text-slate-800">Direct Google Access Token Connection</div>
+                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                              If you cannot edit Firebase Console settings, paste any OAuth Access Token (e.g. from <a href="https://developers.google.com/oauthplayground" target="_blank" rel="noreferrer" className="underline font-semibold text-slate-700">Google OAuth Playground</a> with <code>https://www.googleapis.com/auth/gmail.readonly</code> scope) to connect without popup domain restrictions:
+                            </p>
+                            <input
+                              type="password"
+                              placeholder="Paste Google Access Token (ya29...)"
+                              value={manualTokenInput}
+                              onChange={e => setManualTokenInput(e.target.value)}
+                              className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-xl focus:border-red-500 outline-none font-mono"
+                              required
+                            />
+                            <button
+                              type="submit"
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                            >
+                              Connect Token &amp; Fetch Emails
+                            </button>
+                          </form>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
-
-                {/* Direct Simulator Fallback */}
-                <div className="border-t border-slate-200/60 pt-5">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">
-                    Or Test via Direct Webhook Payload
-                  </h3>
-
-                  <form onSubmit={handleSendGmail} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">Customer Email</label>
-                        <input
-                          type="email"
-                          value={gmailSender}
-                          onChange={e => setGmailSender(e.target.value)}
-                          className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">Subject</label>
-                        <input
-                          type="text"
-                          value={gmailSubject}
-                          onChange={e => setGmailSubject(e.target.value)}
-                          className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Email Body</label>
-                      <textarea
-                        rows={2}
-                        value={gmailBody}
-                        onChange={e => setGmailBody(e.target.value)}
-                        className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
-                        required
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono text-slate-400">POST /api/gmail/webhook</span>
-                      <button
-                        type="submit"
-                        disabled={gmailLoading}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
-                      >
-                        {gmailLoading ? "Processing..." : "Send Test Email"}
-                      </button>
-                    </div>
-
-                    {gmailResult && (
-                      <div className={`p-3 rounded-xl border text-xs ${gmailResult.success ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800"}`}>
-                        {gmailResult.message}
-                      </div>
-                    )}
-                  </form>
-                </div>
-
               </div>
             )}
 
@@ -1049,104 +944,48 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
                   </div>
                 </div>
 
-                {/* 1-Click Demo Products (Test without having a business) */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                    <span>Quick Test Products (No Storefront Required)</span>
-                    <span className="text-[11px] font-normal text-slate-400">Click any product to auto-fill</span>
+                {/* How to Connect Shopify & E-Commerce Stores */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+                    <ShoppingBag className="w-4 h-4 text-purple-600" />
+                    <span>How to Connect Your Shopify Store</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { name: "Sony WH-1000XM5", stars: 1, text: "Left ear cup died after 2 days. No response from seller on warranty.", user: "Rohan Deshmukh" },
-                      { name: "Apple Watch Series 9", stars: 1, text: "Screen randomly flickers and battery dead in 2 hours.", user: "Simran Kaur" },
-                      { name: "Nike Pegasus 40", stars: 2, text: "Sent size US 8 instead of US 10. Packaging arrived crushed.", user: "Aditya Verma" },
-                      { name: "MacBook Pro Charger", stars: 1, text: "Power adapter brick was missing from sealed package upon arrival.", user: "Meera Patel" }
-                    ].map((item, idx) => (
+
+                  <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
+                    <div className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-800 font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
+                      <p>Open your <strong>Shopify Admin</strong> and navigate to <strong>Settings</strong> ⚙️ &gt; <strong>Notifications</strong>.</p>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-800 font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
+                      <p>Scroll down to the <strong>Webhooks</strong> section and click <strong>Create webhook</strong>.</p>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-800 font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
+                      <p>Select <strong>Event: Order creation</strong> (or <em>Order cancellation</em> / <em>Refund creation</em>) and <strong>Format: JSON</strong>.</p>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-800 font-bold flex items-center justify-center shrink-0 text-[11px]">4</span>
+                      <p>Paste your live Webhook URL in the URL field and click <strong>Save</strong>.</p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between text-xs text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Ready to receive live orders, cancellations &amp; returns</span>
+                    </div>
+                    {onNavigateToDashboard && (
                       <button
-                        key={idx}
                         type="button"
-                        onClick={() => {
-                          setEcommProduct(item.name);
-                          setEcommRating(item.stars);
-                          setEcommReview(item.text);
-                          setEcommCustomer(item.user);
-                        }}
-                        className="p-2.5 bg-white hover:bg-purple-50 hover:border-purple-300 border border-slate-200 rounded-xl text-left transition text-xs space-y-1 cursor-pointer group shadow-2xs"
+                        onClick={onNavigateToDashboard}
+                        className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
                       >
-                        <div className="font-semibold text-slate-800 truncate group-hover:text-purple-700">{item.name}</div>
-                        <div className="text-[10px] text-amber-600 font-bold">⭐ {item.stars} Star Defect</div>
+                        View Ticket Queue →
                       </button>
-                    ))}
+                    )}
                   </div>
                 </div>
-
-                <form onSubmit={handleSendECommerce} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Product Purchased</label>
-                      <input
-                        type="text"
-                        value={ecommProduct}
-                        onChange={e => setEcommProduct(e.target.value)}
-                        className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Star Rating</label>
-                      <select
-                        value={ecommRating}
-                        onChange={e => setEcommRating(Number(e.target.value))}
-                        className="w-full text-xs px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                      >
-                        <option value={1}>⭐ 1 Star (Defect)</option>
-                        <option value={2}>⭐⭐ 2 Stars (Dissatisfied)</option>
-                        <option value={3}>⭐⭐⭐ 3 Stars (Average)</option>
-                        <option value={4}>⭐⭐⭐⭐ 4 Stars (Good)</option>
-                        <option value={5}>⭐⭐⭐⭐⭐ 5 Stars (Positive)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Customer Name</label>
-                    <input
-                      type="text"
-                      value={ecommCustomer}
-                      onChange={e => setEcommCustomer(e.target.value)}
-                      className="w-full text-xs px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Review Details</label>
-                    <textarea
-                      rows={3}
-                      value={ecommReview}
-                      onChange={e => setEcommReview(e.target.value)}
-                      className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary resize-none"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-slate-400">POST /api/complaints/incoming</span>
-                    <button
-                      type="submit"
-                      disabled={ecommLoading}
-                      className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
-                    >
-                      {ecommLoading ? "Ingesting..." : "Ingest Review"}
-                    </button>
-                  </div>
-
-                  {ecommResult && (
-                    <div className={`p-3 rounded-xl border text-xs ${ecommResult.success ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800"}`}>
-                      {ecommResult.message}
-                    </div>
-                  )}
-                </form>
               </div>
             )}
 
@@ -1163,7 +1002,7 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
               {[
                 { name: "Gmail / Email Webhook", url: `${getBaseUrl()}/api/gmail/webhook`, icon: Mail, key: "gm" },
                 { name: "WhatsApp Cloud Webhook", url: `${getBaseUrl()}/api/whatsapp/webhook`, icon: MessageCircle, key: "wa" },
-                { name: "E-Commerce / Store Webhook", url: `${getBaseUrl()}/api/complaints/incoming`, icon: ShoppingBag, key: "ec" },
+                { name: "E-Commerce / Store Webhook", url: `${getBaseUrl()}/api/ecommerce/webhook`, icon: ShoppingBag, key: "ec" },
               ].map(item => {
                 const Icon = item.icon;
                 const isCopied = copiedUrl === item.key;

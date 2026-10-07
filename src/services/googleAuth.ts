@@ -21,25 +21,39 @@ provider.setCustomParameters({
   prompt: "consent",
 });
 
+const ACCESS_TOKEN_KEY = "resolveai_google_access_token";
+const GOOGLE_USER_EMAIL_KEY = "resolveai_google_user_email";
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
 
 // Initialize auth state listener.
 export const initAuth = (
-  onAuthSuccess?: (user: FirebaseUser, token: string) => void,
+  onAuthSuccess?: (user: FirebaseUser | any, token: string) => void,
   onAuthFailure?: () => void
 ) => {
   return onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+      const token = await getAccessToken();
+      if (token) {
+        if (onAuthSuccess) onAuthSuccess(user, token);
       } else if (!isSigningIn) {
-        cachedAccessToken = null;
         if (onAuthFailure) onAuthFailure();
       }
     } else {
-      cachedAccessToken = null;
-      if (onAuthFailure) onAuthFailure();
+      // Check if manual token exists in localStorage
+      const manualToken = await getAccessToken();
+      const savedEmail = localStorage.getItem(GOOGLE_USER_EMAIL_KEY);
+      if (manualToken && savedEmail) {
+        if (onAuthSuccess) {
+          onAuthSuccess({ email: savedEmail, displayName: savedEmail.split("@")[0] }, manualToken);
+        }
+      } else {
+        cachedAccessToken = null;
+        try {
+          localStorage.removeItem(ACCESS_TOKEN_KEY);
+        } catch (e) {}
+        if (onAuthFailure) onAuthFailure();
+      }
     }
   });
 };
@@ -55,6 +69,13 @@ export const googleSignIn = async (): Promise<{ user: FirebaseUser; accessToken:
     }
 
     cachedAccessToken = credential.accessToken;
+    try {
+      localStorage.setItem(ACCESS_TOKEN_KEY, cachedAccessToken);
+      if (result.user?.email) {
+        localStorage.setItem(GOOGLE_USER_EMAIL_KEY, result.user.email);
+      }
+    } catch (e) {}
+
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     console.error("Sign in error:", error);
@@ -65,10 +86,32 @@ export const googleSignIn = async (): Promise<{ user: FirebaseUser; accessToken:
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
+  if (cachedAccessToken) return cachedAccessToken;
+  try {
+    const saved = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (saved) {
+      cachedAccessToken = saved;
+      return saved;
+    }
+  } catch (e) {}
+  return null;
+};
+
+export const setManualAccessToken = (token: string, email = "support@resolveai.in") => {
+  cachedAccessToken = token.trim();
+  try {
+    localStorage.setItem(ACCESS_TOKEN_KEY, token.trim());
+    localStorage.setItem(GOOGLE_USER_EMAIL_KEY, email.trim());
+  } catch (e) {}
 };
 
 export const logoutGoogle = async () => {
-  await signOut(auth);
+  try {
+    await signOut(auth);
+  } catch (e) {}
   cachedAccessToken = null;
+  try {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(GOOGLE_USER_EMAIL_KEY);
+  } catch (e) {}
 };
