@@ -138,6 +138,8 @@ export default function Integrations({ onRefreshTasks, onNavigateToDashboard }: 
 
   useEffect(() => {
     fetchRecentSignals();
+    const interval = setInterval(fetchRecentSignals, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const copyToClipboard = (text: string, key: string) => {

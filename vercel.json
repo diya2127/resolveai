@@ -1,6 +1,11 @@
 {
-  "buildCommand": "vite build",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "mock-ecommerce/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",

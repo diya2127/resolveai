@@ -212,6 +212,11 @@ export async function pollTwilioMessages(sid: string, token: string): Promise<nu
     const messages = data.messages || [];
     let syncedCount = 0;
 
+    if (messages.length > 0) {
+      const latest = messages[0];
+      console.log(`[Twilio Debug] Most recent msg in Twilio: SID=${latest.sid}, date=${latest.date_sent || latest.date_created}, from=${latest.from}, body="${String(latest.body).substring(0, 40)}"`);
+    }
+
     for (const msg of messages) {
       if (msg.direction === "inbound" && msg.from?.startsWith("whatsapp:")) {
         // Fast pre-check: skip if this exact external message SID is already stored
