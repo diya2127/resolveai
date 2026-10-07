@@ -6,14 +6,9 @@ const router = Router();
 
 // 1. Get Tasks (Mapped to match Frontend Task interface { id, title, desc, priority, status, notes })
 router.get("/", async (req: Request, res: Response) => {
+  const { email, role, status } = req.query;
+
   try {
-    const { email, role, status } = req.query;
-
-    if (!isDbConnected()) {
-      const memTasks = getMemoryTasks(status as string);
-      return res.json({ tasks: memTasks });
-    }
-
     let sql = `
       SELECT 
         t.task_id, t.priority, t.status, t.notes, t.due_date, t.created_at,
@@ -77,8 +72,9 @@ router.get("/", async (req: Request, res: Response) => {
 
     return res.json({ tasks: formattedTasks });
   } catch (error: any) {
-    console.error("Error in GET /api/tasks:", error);
-    return res.status(500).json({ error: "Failed to retrieve tasks." });
+    console.warn("Postgres query fallback in GET /api/tasks:", error.message);
+    const memTasks = getMemoryTasks(status as string);
+    return res.json({ tasks: memTasks });
   }
 });
 

@@ -30,11 +30,10 @@ export function ensureDbInitialized(): Promise<boolean> {
   if (!dbInitPromise) {
     dbInitPromise = (async () => {
       try {
-        await initDb();
-        await seedDatabase();
-        return true;
-      } catch (err) {
-        console.warn("Database initialization failed:", err);
+        const ready = await initDb();
+        return ready;
+      } catch (err: any) {
+        console.warn("Database initialization failed:", err.message);
         return false;
       }
     })();
@@ -42,25 +41,32 @@ export function ensureDbInitialized(): Promise<boolean> {
   return dbInitPromise;
 }
 
-// Middleware to ensure DB connection is initiated on requests
-app.use(async (req, res, next) => {
-  if (!isDbConnected()) {
-    try {
-      await ensureDbInitialized();
-    } catch (e) {
-      console.warn("DB init in request middleware failed:", e);
+// Deployment & Database Health Check Endpoint (never blocked by DB connection)
+app.get(["/api/health", "/health", "/api"], async (req, res) => {
+  let dbStatus = "disconnected";
+  try {
+    if (isDbConnected()) {
+      await query("SELECT 1");
+      dbStatus = "connected";
     }
+  } catch (e: any) {
+    dbStatus = `error: ${e.message}`;
   }
-  next();
-});
 
-// Deployment & Database Health Check Endpoint
-app.get(["/api/health", "/health"], (req, res) => {
-  res.json({
+  return res.json({
     status: "ok",
-    database: isDbConnected() ? "connected" : "disconnected",
+    database: dbStatus,
+    environment: process.env.NODE_ENV || "production",
     timestamp: new Date().toISOString(),
   });
+});
+
+// Non-blocking database connection trigger on requests
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api") && !req.path.includes("/health")) {
+    ensureDbInitialized().catch(() => {});
+  }
+  next();
 });
 
 // Mount API Routers (supporting both /api/* and root paths for Vercel rewrites)

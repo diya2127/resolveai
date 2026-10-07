@@ -20,9 +20,9 @@ export const pool = new Pool(
     ? { 
         connectionString,
         ssl: isRemote ? { rejectUnauthorized: false } : undefined,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000,
+        max: 5,
+        idleTimeoutMillis: 20000,
+        connectionTimeoutMillis: 5000,
       }
     : {
         host: process.env.PGHOST || "localhost",
@@ -30,17 +30,23 @@ export const pool = new Pool(
         user: process.env.PGUSER || "postgres",
         password: process.env.PGPASSWORD || "postgres",
         database: process.env.PGDATABASE || "resolveai",
-        max: 20,
-        idleTimeoutMillis: 30000,
+        max: 5,
+        idleTimeoutMillis: 20000,
         connectionTimeoutMillis: 5000,
       }
 );
+
+// Prevent unhandled error event from crashing the process
+pool.on("error", (err) => {
+  console.warn("PostgreSQL idle client pool error:", err.message);
+});
 
 let isConnected = false;
 
 export async function query(text: string, params?: any[]) {
   const start = Date.now();
   const res = await pool.query(text, params);
+  isConnected = true;
   const duration = Date.now() - start;
   if (process.env.NODE_ENV === "development" && duration > 200) {
     console.log("[DB Slow Query]", { text: text.substring(0, 100), duration, rows: res.rowCount });
@@ -49,7 +55,7 @@ export async function query(text: string, params?: any[]) {
 }
 
 export function isDbConnected(): boolean {
-  return isConnected;
+  return isConnected || Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "");
 }
 
 export async function initDb(): Promise<boolean> {

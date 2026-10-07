@@ -43,9 +43,11 @@ export async function processIncomingMessage(payload: IncomingComplaintPayload):
 
   const normalizedSource = payload.source || "Website";
 
-  // Check if DB is connected
-  if (!isDbConnected()) {
-    console.warn("[Ingestion] DB disconnected. Running in-memory classification and saving to live memory store.");
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (connErr: any) {
+    console.warn("[Ingestion] Database connection failed, falling back to live memory store:", connErr.message);
     const quickAnalysis = await analyzeComplaint(payload.message, payload.subject, payload.rating, false);
     const { messageId, complaintId, taskId } = addMemoryEntry({
       source: normalizedSource,
@@ -70,8 +72,6 @@ export async function processIncomingMessage(payload: IncomingComplaintPayload):
       analysis: quickAnalysis,
     };
   }
-
-  const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
