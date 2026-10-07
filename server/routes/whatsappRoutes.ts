@@ -226,18 +226,22 @@ export async function pollTwilioMessages(sid: string, token: string): Promise<nu
         }
 
         const cleanPhone = msg.from.replace("whatsapp:", "");
-        const result = await processIncomingMessage({
-          source: "WhatsApp",
-          externalMessageId: msg.sid,
-          senderName: `WhatsApp User (${cleanPhone})`,
-          senderPhone: cleanPhone,
-          subject: `WhatsApp Message: ${String(msg.body || "").substring(0, 35)}...`,
-          message: msg.body,
-          rawData: msg,
-        });
+        try {
+          const result = await processIncomingMessage({
+            source: "WhatsApp",
+            externalMessageId: msg.sid,
+            senderName: `WhatsApp User (${cleanPhone})`,
+            senderPhone: cleanPhone,
+            subject: `WhatsApp Message: ${String(msg.body || "").substring(0, 35)}...`,
+            message: msg.body,
+            rawData: msg,
+          });
 
-        if (result && !result.duplicate) {
-          syncedCount++;
+          if (result && !result.duplicate) {
+            syncedCount++;
+          }
+        } catch (msgErr: any) {
+          console.warn("[Twilio Auto-Sync] Message processing warning for SID", msg.sid, msgErr.message);
         }
       }
     }

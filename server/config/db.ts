@@ -20,9 +20,10 @@ export const pool = new Pool(
     ? { 
         connectionString,
         ssl: isRemote ? { rejectUnauthorized: false } : undefined,
-        max: 5,
-        idleTimeoutMillis: 20000,
-        connectionTimeoutMillis: 5000,
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
+        statement_timeout: 20000,
       }
     : {
         host: process.env.PGHOST || "localhost",
@@ -30,9 +31,10 @@ export const pool = new Pool(
         user: process.env.PGUSER || "postgres",
         password: process.env.PGPASSWORD || "postgres",
         database: process.env.PGDATABASE || "resolveai",
-        max: 5,
-        idleTimeoutMillis: 20000,
-        connectionTimeoutMillis: 5000,
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
+        statement_timeout: 20000,
       }
 );
 

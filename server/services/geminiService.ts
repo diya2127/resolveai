@@ -147,13 +147,20 @@ Rating: ${rating !== undefined && rating !== null ? rating : "N/A"}
 Repeated Signal Pattern Detected: ${repeatedFlagHint ? "YES" : "NO"}
 `;
 
-    const response = await client.models.generateContent({
-      model: "gemini-3.8-flash",
-      contents: prompt,
-      config: {
-        temperature: 0.2,
-      },
-    });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Gemini API call timed out after 8s")), 8000)
+    );
+
+    const response: any = await Promise.race([
+      client.models.generateContent({
+        model: "gemini-3.5-flash-lite",
+        contents: prompt,
+        config: {
+          temperature: 0.2,
+        },
+      }),
+      timeoutPromise,
+    ]);
 
     const responseText = response.text?.trim() || "";
     // Clean potential markdown blocks
@@ -205,10 +212,17 @@ Do NOT include generic bracketed placeholders like [Your Name] or [Company Name]
 
   if (client) {
     try {
-      const response = await client.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-      });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Gemini draft timed out after 6s")), 6000)
+      );
+
+      const response: any = await Promise.race([
+        client.models.generateContent({
+          model: "gemini-3.5-flash-lite",
+          contents: prompt,
+        }),
+        timeoutPromise,
+      ]);
       if (response.text) return response.text.trim();
     } catch (e) {
       console.warn("Gemini draft reply error:", e);

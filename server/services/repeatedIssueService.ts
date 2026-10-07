@@ -77,23 +77,26 @@ export async function detectRepeatedIssue(input: RepeatedCheckInput): Promise<Re
       "order cancelled",
     ];
 
-    for (const kw of commonIssueKeywords) {
-      if (combined.includes(kw)) {
-        const keywordMatches = await query(
-          `SELECT COUNT(*) as count 
+    const foundKw = commonIssueKeywords.find(kw => combined.includes(kw));
+    if (foundKw) {
+      const keywordMatches = await query(
+        `SELECT COUNT(*) as count 
+         FROM (
+           SELECT message_id
            FROM source_messages sm
-           WHERE LOWER(sm.message_content) LIKE $1
-             AND sm.received_at > NOW() - INTERVAL '14 days'`,
-          [`%${kw}%`]
-        );
-        const count = parseInt(keywordMatches.rows[0]?.count || "0", 10);
-        if (count >= 3) {
-          return {
-            isRepeated: true,
-            matchCount: count + 1,
-            matchedReason: `Cluster anomaly: Keyword "${kw}" reported ${count} times across the platform recently`,
-          };
-        }
+           WHERE sm.received_at > NOW() - INTERVAL '14 days'
+             AND LOWER(sm.message_content) LIKE $1
+           LIMIT 5
+         ) sub`,
+        [`%${foundKw}%`]
+      );
+      const count = parseInt(keywordMatches.rows[0]?.count || "0", 10);
+      if (count >= 3) {
+        return {
+          isRepeated: true,
+          matchCount: count + 1,
+          matchedReason: `Cluster anomaly: Keyword "${foundKw}" reported ${count} times across the platform recently`,
+        };
       }
     }
 
